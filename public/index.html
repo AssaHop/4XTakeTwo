@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hexagonal Map Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="menu-container">
+        <h1>Hexagonal Map Game</h1>
+        <label>Choose map size:</label>
+        <button onclick="startGame(8)">8 Hex Radius</button>
+        <button onclick="startGame(12)">12 Hex Radius</button>
+        <button onclick="startGame(16)">16 Hex Radius</button>
+    </div>
+    <div id="zoom-container">
+        <div id="game-container"></div>
+    </div>
+    <button id="end-turn-button" onclick="endTurn()" style="display: none;">End Turn</button>
+    <script src="scripts/main.js"></script>
+</body>
+</html>
