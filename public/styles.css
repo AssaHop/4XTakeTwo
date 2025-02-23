@@ -1,0 +1,104 @@
+:root {
+    --hex-radius: 40px;
+    --squash-factor: 0.5; /* Статическое значение squash-factor */
+    --hex-width: calc(2 * var(--hex-radius));
+    --hex-height: calc(var(--squash-factor) * sqrt(3) * var(--hex-radius));
+    --hex-clip-top-left: 25% 0%;
+    --hex-clip-top-right: 75% 0%;
+    --hex-clip-right: 100% 50%;
+    --hex-clip-bottom-right: 75% 100%;
+    --hex-clip-bottom-left: 25% 100%;
+    --hex-clip-left: 0% 50%;
+}
+
+.hex {
+    position: absolute;
+    width: var(--hex-width); /* Диаметр по ширне */
+    height: var(--hex-height); /* Высота гекса */
+    background-color: #ccc;
+    clip-path: polygon(
+        var(--hex-clip-top-left),  /* Верхняя левая вершина */
+        var(--hex-clip-top-right),  /* Верхняя правая вершина */
+        var(--hex-clip-right), /* Правая вершина */
+        var(--hex-clip-bottom-right), /* Нижняя правая вершина */
+        var(--hex-clip-bottom-left), /* Нижняя левая вершина */
+        var(--hex-clip-left)   /* Левая вершина */
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #333;
+    border: 1px solid #999;
+    box-sizing: border-box; /* Убедимся, что padding и border включены в размеры */
+}
+
+.hex.walkable {
+    background-color: #8f8;
+}
+
+.hex.non-walkable {
+    background-color: #f88;
+}
+
+/* Стили для юнитов */
+.unit {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    background-color: #00f;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    border: 2px solid #000;
+}
+
+.unit.selected {
+    border-color: #ff0;
+}
+
+.unit.acted {
+    opacity: 0.5;
+}
+
+/* Контейнер для игры */
+#game-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+#zoom-container {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    overflow: auto;
+}
+
+#menu-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: #333;
+    color: #fff;
+}
+
+#end-turn-button {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    padding: 10px 20px;
+    background-color: #f00;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+
+#end-turn-button:disabled {
+    background-color: #888;
+}
