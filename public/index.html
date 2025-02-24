@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hexagonal Map Game</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Hex Game</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div id="menu-container">
-        <h1>Hexagonal Map Game</h1>
-        <label>Choose map size:</label>
-        <button onclick="startGame(8)">8 Hex Radius</button>
-        <button onclick="startGame(12)">12 Hex Radius</button>
-        <button onclick="startGame(16)">16 Hex Radius</button>
+        <!-- Элементы меню для выбора размера карты -->
+        <button onclick="startGame(10, 0.7)">Start Small Game</button>
+        <button onclick="startGame(20, 0.7)">Start Medium Game</button>
+        <button onclick="startGame(30, 0.7)">Start Large Game</button>
     </div>
-    <div id="zoom-container">
-        <div id="game-container"></div>
+    <div id="game-container" style="display: none;">
+        <!-- Элементы для управления игрой -->
+        <button id="end-turn-button">End Turn</button>
     </div>
-    <button id="end-turn-button" onclick="endTurn()" style="display: none;">End Turn</button>
-    <script src="scripts/main.js"></script>
+
+    <script type="module" src="/src/core/game.js"></script>
 </body>
 </html>
