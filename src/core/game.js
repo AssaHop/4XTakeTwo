@@ -7,11 +7,16 @@ import { setupEventListeners } from '../ui/events.js';
 let map = [];
 const units = [];
 let scale = 1; // Переменная для хранения текущего масштаба
+let isDragging = false;
+let dragStart = { x: 0, y: 0 };
+let offset = { x: 0, y: 0 };
 
 document.addEventListener('DOMContentLoaded', () => {
     setupUI();
     showMenu();
     setupZoomControls();
+    setupDragControls();
+    startGame(5); // Устанавливаем начальный размер сетки равным 10
 });
 
 function showMenu() {
@@ -27,7 +32,7 @@ function startGame(size) {
 
 function initGame(size) {
     map = generateHexMap(size);
-    renderMap(scale); // Передаем текущий масштаб
+    renderMap(scale, offset); // Передаем текущий масштаб и смещение
     setupEventListeners();
 }
 
@@ -43,14 +48,39 @@ function setupZoomControls() {
     });
 }
 
+function setupDragControls() {
+    const canvas = document.getElementById('game-canvas');
+    canvas.addEventListener('mousedown', (event) => {
+        isDragging = true;
+        dragStart.x = event.clientX - offset.x;
+        dragStart.y = event.clientY - offset.y;
+    });
+
+    canvas.addEventListener('mousemove', (event) => {
+        if (isDragging) {
+            offset.x = event.clientX - dragStart.x;
+            offset.y = event.clientY - dragStart.y;
+            renderMap(scale, offset);
+        }
+    });
+
+    canvas.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+        isDragging = false;
+    });
+}
+
 function zoomIn() {
     scale += 0.1;
-    renderMap(scale); // Перерисовываем карту с новым масштабом
+    renderMap(scale, offset); // Перерисовываем карту с новым масштабом
 }
 
 function zoomOut() {
     scale = Math.max(0.1, scale - 0.1); // Минимальный масштаб 0.1
-    renderMap(scale); // Перерисовываем карту с новым масштабом
+    renderMap(scale, offset); // Перерисовываем карту с новым масштабом
 }
 
 window.startGame = startGame; // Убедимся, что функция доступна глобально

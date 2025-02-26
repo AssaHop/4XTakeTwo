@@ -3,16 +3,19 @@ import { units } from '../core/game.js';
 import { updateEndTurnButton } from './events.js';
 
 let scale = 1; // Переменная для хранения текущего масштаба
+let squashFactor = 1; // Сквошфактор для вертикального сжатия
+let hexOffsetX = 0; // Горизонтальное смещение гексов
+let hexOffsetY = 0; // Вертикальное смещение гексов
 
-function renderMap(newScale = scale) {
+function renderMap(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x: hexOffsetX, y: hexOffsetY }) {
     scale = newScale; // Обновляем текущий масштаб
     const canvas = document.getElementById('game-canvas');
     const ctx = canvas.getContext('2d');
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
 
-    const offsetX = canvas.width / 2;
-    const offsetY = canvas.height / 2;
+    const offsetX = canvas.width / 2 + offset.x;
+    const offsetY = canvas.height / 2 + offset.y;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
@@ -20,7 +23,7 @@ function renderMap(newScale = scale) {
 
     map.forEach(row => {
         row.forEach(cell => {
-            const { x, y } = cubeToPixel(cell.q, cell.r, cell.s, offsetX / scale, offsetY / scale);
+            const { x, y } = cubeToPixel(cell.q, cell.r, cell.s, offsetX / scale, offsetY / scale, hexOffset.x, hexOffset.y, squashFactor);
             drawHex(ctx, x, y, HEX_RADIUS, cell.type);
         });
     });
@@ -47,18 +50,18 @@ function drawHex(ctx, x, y, radius, type) {
     ctx.stroke();
 }
 
-function renderUnits(newScale = scale) {
+function renderUnits(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x: hexOffsetX, y: hexOffsetY }) {
     const canvas = document.getElementById('game-canvas');
     const ctx = canvas.getContext('2d');
 
-    const offsetX = canvas.width / 2;
-    const offsetY = canvas.height / 2;
+    const offsetX = canvas.width / 2 + offset.x;
+    const offsetY = canvas.height / 2 + offset.y;
 
     ctx.save();
     ctx.scale(newScale, newScale); // Масштабируем канвас
 
     units.forEach(unit => {
-        const { x, y } = cubeToPixel(unit.q, unit.r, unit.s, offsetX / newScale, offsetY / newScale);
+        const { x, y } = cubeToPixel(unit.q, unit.r, unit.s, offsetX / newScale, offsetY / newScale, hexOffset.x, hexOffset.y, squashFactor);
         drawUnit(ctx, x, y, unit);
     });
 
