@@ -1,27 +1,25 @@
 const map = [];
 const HEX_RADIUS = 40;
-const HEX_HEIGHT = 2 * HEX_RADIUS; // Высота гексагона для вертикальной ориентации
-const HEX_WIDTH = Math.sqrt(3) * HEX_RADIUS; // Ширина гексагона для вертикальной ориентации
-const HEX_VERTICAL_SPACING = HEX_RADIUS * 1.05;  // Вертикальное расстояние между гексагонами
-const HEX_HORIZONTAL_SPACING = HEX_WIDTH * 0.99; // Горизонтальное расстояние между гексагонами
 
-
-function axialToPixel(q, r, offsetX, offsetY) {
-    const x = HEX_WIDTH * (q + r / 2) + offsetX;  // Горизонтальное смещение
-    const y = HEX_VERTICAL_SPACING * r + offsetY;  // Вертикальное смещение
-    return { x, y };
+function cubeToPixel(x, y, z, offsetX, offsetY) {
+    const q = x;
+    const r = z;
+    const xCoord = HEX_RADIUS * (3/2 * q) + offsetX;
+    const yCoord = HEX_RADIUS * (Math.sqrt(3) * (r + q/2)) + offsetY;
+    return { x: xCoord, y: yCoord };
 }
 
-
-function generateMap(size) {
+function generateHexMap(size) {
     map.length = 0;
     for (let q = -size; q <= size; q++) {
         const rowArray = [];
         for (let r = -size; r <= size; r++) {
-            if (Math.abs(q + r) <= size) {
+            const s = -q - r;
+            if (Math.abs(s) <= size) {
                 const cell = {
                     q: q,
                     r: r,
+                    s: s,
                     type: Math.random() > 0.2 ? 'walkable' : 'non-walkable'
                 };
                 rowArray.push(cell);
@@ -32,4 +30,4 @@ function generateMap(size) {
     console.log('Map generated:', map);
 }
 
-export { map, generateMap, axialToPixel };
+export { map, generateHexMap, cubeToPixel, HEX_RADIUS };
