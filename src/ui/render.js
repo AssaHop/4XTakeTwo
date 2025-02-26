@@ -3,7 +3,7 @@ import { units } from '../core/game.js';
 import { updateEndTurnButton } from './events.js';
 
 let scale = 1; // Переменная для хранения текущего масштаба
-let squashFactor = 1; // Сквошфактор для вертикального сжатия
+let squashFactor =0.7; // Сквошфактор для вертикального сжатия
 let hexOffsetX = 0; // Горизонтальное смещение гексов
 let hexOffsetY = 0; // Вертикальное смещение гексов
 

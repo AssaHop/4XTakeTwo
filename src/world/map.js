@@ -2,12 +2,12 @@ const map = [];
 const HEX_RADIUS = 40;
 
 // Новые параметры расстояний между гексами по горизонтали и вертикали
-const HORIZONTAL_SPACING = 0.7; // Коэффициент для увеличения расстояния по горизонтали
-const VERTICAL_SPACING = 1.5; // Коэффициент для увеличения расстояния по вертикали
+const HORIZONTAL_SPACING = 1; // Коэффициент для увеличения расстояния по горизонтали
+const VERTICAL_SPACING = 1; // Коэффициент для увеличения расстояния по вертикали
 
 function cubeToPixel(q, r, s, offsetX = 0, offsetY = 0) {
-    const xCoord = HEX_RADIUS * (3/2 * q) * HORIZONTAL_SPACING + offsetX;
-    const yCoord = HEX_RADIUS * (Math.sqrt(3) * (r + q/2)) * VERTICAL_SPACING + offsetY;
+    const xCoord = HEX_RADIUS * Math.sqrt(3) * (q + r / 2) * HORIZONTAL_SPACING + offsetX;
+    const yCoord = HEX_RADIUS * 3 / 2 * r * VERTICAL_SPACING + offsetY;
     return { x: xCoord, y: yCoord };
 }
 
