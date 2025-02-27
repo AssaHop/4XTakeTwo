@@ -1,9 +1,8 @@
-import { map, cubeToPixel, HEX_RADIUS } from '../world/map.js';
+import { map, cubeToPixel, HEX_RADIUS, squashFactor } from '../world/map.js';
 import { units } from '../core/game.js';
 import { updateEndTurnButton } from './events.js';
 
 let scale = 1; // Переменная для хранения текущего масштаба
-let squashFactor =0.7; // Сквошфактор для вертикального сжатия
 let hexOffsetX = 0; // Горизонтальное смещение гексов
 let hexOffsetY = 0; // Вертикальное смещение гексов
 
@@ -23,8 +22,8 @@ function renderMap(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x: h
 
     map.forEach(row => {
         row.forEach(cell => {
-            const { x, y } = cubeToPixel(cell.q, cell.r, cell.s, offsetX / scale, offsetY / scale, hexOffset.x, hexOffset.y, squashFactor);
-            drawHex(ctx, x, y, HEX_RADIUS, cell.type);
+            const { x, y } = cubeToPixel(cell.q, cell.r, cell.s, offsetX / scale, offsetY / scale, hexOffset.x, hexOffset.y);
+            drawHex(ctx, x, y, HEX_RADIUS, cell.type); // Применяем squashFactor только к вертикальному расстоянию
         });
     });
 
@@ -37,7 +36,7 @@ function drawHex(ctx, x, y, radius, type) {
     for (let i = 0; i < 6; i++) {
         const angle = 2 * Math.PI / 6 * (i + 0.5);
         const x_i = x + radius * Math.cos(angle);
-        const y_i = y + radius * Math.sin(angle);
+        const y_i = y + radius * Math.sin(angle) * squashFactor; // Применяем squashFactor только к вертикальному расстоянию
         if (i === 0) {
             ctx.moveTo(x_i, y_i);
         } else {
@@ -61,7 +60,7 @@ function renderUnits(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x:
     ctx.scale(newScale, newScale); // Масштабируем канвас
 
     units.forEach(unit => {
-        const { x, y } = cubeToPixel(unit.q, unit.r, unit.s, offsetX / newScale, offsetY / newScale, hexOffset.x, hexOffset.y, squashFactor);
+        const { x, y } = cubeToPixel(unit.q, unit.r, unit.s, offsetX / newScale, offsetY / newScale, hexOffset.x, hexOffset.y);
         drawUnit(ctx, x, y, unit);
     });
 
@@ -71,8 +70,10 @@ function renderUnits(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x:
 }
 
 function drawUnit(ctx, x, y, unit) {
+    ctx.save();
+    ctx.scale(1, 1 / squashFactor); // Применяем обратный squashFactor только к вертикальному расстоянию для текстур юнитов
     ctx.beginPath();
-    ctx.arc(x, y, HEX_RADIUS / 2, 0, 2 * Math.PI);
+    ctx.arc(x, y * squashFactor, HEX_RADIUS / 2, 0, 2 * Math.PI); // Не применяем squashFactor к радиусу
     ctx.fillStyle = unit.color;
     ctx.fill();
     ctx.stroke();
@@ -83,6 +84,7 @@ function drawUnit(ctx, x, y, unit) {
         ctx.lineWidth = 1;
         ctx.strokeStyle = '#000';
     }
+    ctx.restore();
 }
 
 export { renderMap, renderUnits };

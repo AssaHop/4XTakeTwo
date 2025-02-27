@@ -1,13 +1,17 @@
 const map = [];
-const HEX_RADIUS = 40;
+const HEX_RADIUS = 60;
 
-// Новые параметры расстояний между гексами по горизонтали и вертикали
+// Параметры расстояний между гексами по горизонтали и вертикали
 const HORIZONTAL_SPACING = 1; // Коэффициент для увеличения расстояния по горизонтали
 const VERTICAL_SPACING = 1; // Коэффициент для увеличения расстояния по вертикали
 
+// Коэффициент сжатия для вертикального расстояния
+const squashFactor = 0.7; // Например, сжатие на 20%
+
 function cubeToPixel(q, r, s, offsetX = 0, offsetY = 0) {
+    // Применяем коэффициент сжатия только к вертикальному расстоянию
     const xCoord = HEX_RADIUS * Math.sqrt(3) * (q + r / 2) * HORIZONTAL_SPACING + offsetX;
-    const yCoord = HEX_RADIUS * 3 / 2 * r * VERTICAL_SPACING + offsetY;
+    const yCoord = HEX_RADIUS * 3 / 2 * r * VERTICAL_SPACING * squashFactor + offsetY;
     return { x: xCoord, y: yCoord };
 }
 
@@ -53,4 +57,4 @@ function generateHexMap(size, offsetX = 0, offsetY = 0) {
     console.log('Map generated:', map);
 }
 
-export { map, generateHexMap, cubeToPixel, HEX_RADIUS, getNeighbors };
+export { map, generateHexMap, cubeToPixel, HEX_RADIUS, getNeighbors, squashFactor };
