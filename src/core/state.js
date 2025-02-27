@@ -1,6 +1,8 @@
 const state = {
     map: [],
-    units: []
+    units: [],
+    selectedUnit: null, // Текущий выбранный юнит
+    highlightedHexes: [] // Подсвеченные гексы для доступного перемещения
 };
 
 export { state };

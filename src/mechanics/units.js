@@ -1,5 +1,5 @@
-import { renderUnits } from '../ui/render.js';
-import { state } from '../core/state.js'; // Импортируем state
+import { renderUnits, highlightHexes } from '../ui/render.js';
+import { state } from '../core/state.js';
 
 class Unit {
     constructor(q, r, type, owner) {
@@ -28,11 +28,35 @@ class Unit {
     }
 
     resetActions() {
-        this.actions = 1; // Сброс количества действий в начале хода
+        this.actions = 1; 
+    }
+
+    getAvailableHexes() {
+        const availableHexes = [];
+        const directions = [
+            { q: 1, r: 0 }, { q: -1, r: 0 }, { q: 0, r: 1 },
+            { q: 0, r: -1 }, { q: 1, r: -1 }, { q: -1, r: 1 }
+        ];
+        directions.forEach(direction => {
+            const newQ = this.q + direction.q;
+            const newR = this.r + direction.r;
+            if (state.map[newQ + state.map.length] && state.map[newQ + state.map.length][newR + state.map.length] && state.map[newQ + state.map.length][newR + state.map.length].type === 'walkable') {
+                availableHexes.push({ q: newQ, r: newR });
+            }
+        });
+        return availableHexes;
+    }
+
+    select() {
+        this.selected = true;
+    }
+
+    deselect() {
+        this.selected = false;
     }
 }
 
-const units = state.units; // Используем units из state
+const units = state.units;
 
 function generateUnits(numUnits) {
     units.length = 0;
@@ -60,4 +84,15 @@ function resetUnitsActions() {
     units.forEach(unit => unit.resetActions());
 }
 
-export { generateUnits, addUnit, Unit, units, resetUnitsActions };
+function selectUnit(unit) {
+    if (state.selectedUnit) {
+        state.selectedUnit.deselect();
+    }
+    unit.select();
+    state.selectedUnit = unit;
+    state.highlightedHexes = unit.getAvailableHexes();
+    highlightHexes(state.highlightedHexes);
+    renderUnits();
+}
+
+export { generateUnits, addUnit, Unit, units, resetUnitsActions, selectUnit };

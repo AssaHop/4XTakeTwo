@@ -2,12 +2,12 @@ import { cubeToPixel, HEX_RADIUS, squashFactor } from '../world/map.js';
 import { state } from '../core/state.js';
 import { updateEndTurnButton } from './events.js';
 
-let scale = 1; // Переменная для хранения текущего масштаба
-let hexOffsetX = 0; // Горизонтальное смещение гексов
-let hexOffsetY = 0; // Вертикальное смещение гексов
+let scale = 1; 
+let hexOffsetX = 0; 
+let hexOffsetY = 0; 
 
 function renderMap(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x: hexOffsetX, y: hexOffsetY }) {
-    scale = newScale; // Обновляем текущий масштаб
+    scale = newScale; 
     const canvas = document.getElementById('game-canvas');
     const ctx = canvas.getContext('2d');
     canvas.width = canvas.clientWidth;
@@ -18,9 +18,8 @@ function renderMap(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x: h
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
-    ctx.scale(scale, scale); // Масштабируем канвас
+    ctx.scale(scale, scale); 
 
-    // Проверка и логирование данных карты
     if (!state.map || state.map.length === 0) {
         console.error('Map data is empty');
         return;
@@ -31,7 +30,8 @@ function renderMap(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x: h
     state.map.forEach(row => {
         row.forEach(cell => {
             const { x, y } = cubeToPixel(cell.q, cell.r, cell.s, offsetX / scale, offsetY / scale, hexOffset.x, hexOffset.y);
-            drawHex(ctx, x, y, HEX_RADIUS, cell.type); // Применяем squashFactor только к вертикальному расстоянию
+            const isHighlighted = state.highlightedHexes.some(hex => hex.q === cell.q && hex.r === cell.r);
+            drawHex(ctx, x, y, HEX_RADIUS, cell.type, isHighlighted); 
         });
     });
 
@@ -39,12 +39,12 @@ function renderMap(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x: h
     console.log('Map rendered');
 }
 
-function drawHex(ctx, x, y, radius, type) {
+function drawHex(ctx, x, y, radius, type, isHighlighted = false) {
     ctx.beginPath();
     for (let i = 0; i < 6; i++) {
         const angle = 2 * Math.PI / 6 * (i + 0.5);
         const x_i = x + radius * Math.cos(angle);
-        const y_i = y + radius * Math.sin(angle) * squashFactor; // Применяем squashFactor только к вертикальному расстоянию
+        const y_i = y + radius * Math.sin(angle) * squashFactor; 
         if (i === 0) {
             ctx.moveTo(x_i, y_i);
         } else {
@@ -52,7 +52,7 @@ function drawHex(ctx, x, y, radius, type) {
         }
     }
     ctx.closePath();
-    ctx.fillStyle = type === 'walkable' ? '#3090ff' : '#a42';
+    ctx.fillStyle = isHighlighted ? '#ffff00' : (type === 'walkable' ? '#3090ff' : '#a42');
     ctx.fill();
     ctx.stroke();
 }
@@ -65,7 +65,7 @@ function renderUnits(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x:
     const offsetY = canvas.height / 2 + offset.y;
 
     ctx.save();
-    ctx.scale(newScale, newScale); // Масштабируем канвас
+    ctx.scale(newScale, newScale); 
 
     state.units.forEach(unit => {
         const { x, y } = cubeToPixel(unit.q, unit.r, unit.s, offsetX / newScale, offsetY / newScale, hexOffset.x, hexOffset.y);
@@ -79,9 +79,9 @@ function renderUnits(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x:
 
 function drawUnit(ctx, x, y, unit) {
     ctx.save();
-    ctx.scale(1, 1 / squashFactor); // Применяем обратный squashFactor только к вертикальному расстоянию для текстур юнитов
+    ctx.scale(1, 1 / squashFactor); 
     ctx.beginPath();
-    ctx.arc(x, y * squashFactor, HEX_RADIUS / 2, 0, 2 * Math.PI); // Не применяем squashFactor к радиусу
+    ctx.arc(x, y * squashFactor, HEX_RADIUS / 2, 0, 2 * Math.PI); 
     ctx.fillStyle = unit.color;
     ctx.fill();
     ctx.stroke();
@@ -95,4 +95,9 @@ function drawUnit(ctx, x, y, unit) {
     ctx.restore();
 }
 
-export { renderMap, renderUnits };
+function highlightHexes(hexes) {
+    state.highlightedHexes = hexes;
+    renderMap(scale, { x: hexOffsetX, y: hexOffsetY });
+}
+
+export { renderMap, renderUnits, highlightHexes };
