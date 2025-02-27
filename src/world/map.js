@@ -1,5 +1,5 @@
 const map = [];
-const HEX_RADIUS = 60;
+const HEX_RADIUS = 40;
 
 // Параметры расстояний между гексами по горизонтали и вертикали
 const HORIZONTAL_SPACING = 1; // Коэффициент для увеличения расстояния по горизонтали
@@ -33,7 +33,7 @@ function getNeighbors(q, r, s) {
 }
 
 function generateHexMap(size, offsetX = 0, offsetY = 0) {
-    map.length = 0;
+    const map = []; // Локальная переменная map
     for (let q = -size; q <= size; q++) {
         const rowArray = [];
         for (let r = -size; r <= size; r++) {
@@ -55,6 +55,7 @@ function generateHexMap(size, offsetX = 0, offsetY = 0) {
         map.push(rowArray);
     }
     console.log('Map generated:', map);
+    return map; // Возвращаем сгенерированную карту
 }
 
 export { map, generateHexMap, cubeToPixel, HEX_RADIUS, getNeighbors, squashFactor };

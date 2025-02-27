@@ -1,5 +1,5 @@
-import { map, cubeToPixel, HEX_RADIUS, squashFactor } from '../world/map.js';
-import { units } from '../core/game.js';
+import { cubeToPixel, HEX_RADIUS, squashFactor } from '../world/map.js';
+import { state } from '../core/state.js';
 import { updateEndTurnButton } from './events.js';
 
 let scale = 1; // Переменная для хранения текущего масштаба
@@ -20,7 +20,15 @@ function renderMap(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x: h
     ctx.save();
     ctx.scale(scale, scale); // Масштабируем канвас
 
-    map.forEach(row => {
+    // Проверка и логирование данных карты
+    if (!state.map || state.map.length === 0) {
+        console.error('Map data is empty');
+        return;
+    } else {
+        console.log('Rendering map with data:', state.map);
+    }
+
+    state.map.forEach(row => {
         row.forEach(cell => {
             const { x, y } = cubeToPixel(cell.q, cell.r, cell.s, offsetX / scale, offsetY / scale, hexOffset.x, hexOffset.y);
             drawHex(ctx, x, y, HEX_RADIUS, cell.type); // Применяем squashFactor только к вертикальному расстоянию
@@ -59,14 +67,14 @@ function renderUnits(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x:
     ctx.save();
     ctx.scale(newScale, newScale); // Масштабируем канвас
 
-    units.forEach(unit => {
+    state.units.forEach(unit => {
         const { x, y } = cubeToPixel(unit.q, unit.r, unit.s, offsetX / newScale, offsetY / newScale, hexOffset.x, hexOffset.y);
         drawUnit(ctx, x, y, unit);
     });
 
     ctx.restore();
     console.log('Units rendered');
-    updateEndTurnButton(units.every(unit => unit.actions === 0));
+    updateEndTurnButton(state.units.every(unit => unit.actions === 0));
 }
 
 function drawUnit(ctx, x, y, unit) {

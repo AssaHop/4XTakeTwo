@@ -1,5 +1,5 @@
 import { renderUnits } from '../ui/render.js';
-import { map } from '../core/game.js'; // Добавим импорт map
+import { state } from '../core/state.js'; // Импортируем state
 
 class Unit {
     constructor(q, r, type, owner) {
@@ -18,17 +18,29 @@ class Unit {
     upgrade() {
         // Реализация улучшения юнита
     }
+
+    moveTo(q, r) {
+        if (this.actions > 0) {
+            this.q = q;
+            this.r = r;
+            this.actions -= 1;
+        }
+    }
+
+    resetActions() {
+        this.actions = 1; // Сброс количества действий в начале хода
+    }
 }
 
-const units = []; // Добавим экспорт units
+const units = state.units; // Используем units из state
 
 function generateUnits(numUnits) {
     units.length = 0;
     let generatedUnits = 0;
     while (generatedUnits < numUnits) {
-        const q = Math.floor(Math.random() * (map.length * 2 + 1)) - map.length;
-        const r = Math.floor(Math.random() * (map.length * 2 + 1)) - map.length;
-        if (map[q + map.length] && map[q + map.length][r + map.length] && map[q + map.length][r + map.length].type === 'walkable' && !units.some(unit => unit.q === q && unit.r === r)) {
+        const q = Math.floor(Math.random() * (state.map.length * 2 + 1)) - state.map.length;
+        const r = Math.floor(Math.random() * (state.map.length * 2 + 1)) - state.map.length;
+        if (state.map[q + state.map.length] && state.map[q + state.map.length][r + state.map.length] && state.map[q + state.map.length][r + state.map.length].type === 'walkable' && !units.some(unit => unit.q === q && unit.r === r)) {
             const unit = new Unit(q, r, 'dd', 'player'); 
             units.push(unit);
             generatedUnits++;
@@ -38,4 +50,14 @@ function generateUnits(numUnits) {
     renderUnits();
 }
 
-export { generateUnits, Unit, units };
+function addUnit(q, r, type, owner) {
+    const unit = new Unit(q, r, type, owner);
+    units.push(unit);
+    renderUnits();
+}
+
+function resetUnitsActions() {
+    units.forEach(unit => unit.resetActions());
+}
+
+export { generateUnits, addUnit, Unit, units, resetUnitsActions };
