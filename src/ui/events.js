@@ -1,6 +1,6 @@
 import { resetUnitsActions, selectUnit } from '../mechanics/units.js';
 import { renderUnits, renderMap, highlightHexes } from './render.js';
-import { state } from '../core/state.js';
+import { state, mapOffsetX, mapOffsetY } from '../core/game.js';
 import { HEX_RADIUS, squashFactor } from '../world/map.js';
 
 function setupEventListeners() {
@@ -60,12 +60,26 @@ function handleUnitMovement(unit, x, y) {
 }
 
 function pixelToHex(x, y) {
+    console.log(`➡️ pixelToHex called with: x = ${x}, y = ${y}`);
+    
     const size = HEX_RADIUS;
-    const q = (x * 2/3) / size;
-    const r = (-x / 3 + Math.sqrt(3)/3 * y / squashFactor) / size;
+    const scale = window.scale || 1;
+
+    // Вычитаем смещение карты (центрируем расчет)
+    const adjustedX = (x - mapOffsetX) / scale;
+    const adjustedY = (y - mapOffsetY) / scale;
+
+    console.log(`Adjusted coordinates: (${adjustedX}, ${adjustedY})`);
+
+    const q = (Math.sqrt(3) / 3 * adjustedX - 1 / 3 * adjustedY) / size;
+    const r = (2 / 3 * adjustedY) / (size * squashFactor);
     const s = -q - r;
+
+    console.log(`Calculated fractional coordinates: (q: ${q}, r: ${r}, s: ${s})`);
+
     const roundedCube = cubeRound({ q, r, s });
-    console.log(`Pixel to Hex: (${x}, ${y}) -> (${roundedCube.q}, ${roundedCube.r}, ${roundedCube.s})`);
+    console.log(`✅ Pixel to Hex result: (q: ${roundedCube.q}, r: ${roundedCube.r}, s: ${roundedCube.s})`);
+
     return roundedCube;
 }
 
@@ -91,8 +105,9 @@ function cubeRound(cube) {
 
 function isUnitClicked(unit, x, y) {
     const { q, r, s } = pixelToHex(x, y);
+    console.log(`Unit coordinates: (q: ${unit.q}, r: ${unit.r}, s: ${unit.s})`);
     const isClicked = unit.q === q && unit.r === r && unit.s === s;
-    console.log(`Is unit clicked: (${q}, ${r}, ${s}) -> ${isClicked}`);
+    console.log(`Is unit clicked: (q: ${q}, r: ${r}, s: ${s}) -> ${isClicked}`);
     return isClicked;
 }
 

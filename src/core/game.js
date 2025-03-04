@@ -5,6 +5,10 @@ import { setupUI } from '../ui/setup.js';
 import { setupEventListeners } from '../ui/events.js';
 import { state } from '../core/state.js';
 
+// Центральная точка карты в пикселях
+let mapOffsetX = 624;
+let mapOffsetY = 396.5;
+
 let scale = 1;
 let isDragging = false;
 let dragStart = { x: 0, y: 0 };
@@ -15,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showMenu();
     setupZoomControls();
     setupDragControls();
-    startGame(5); // Устанавливаем начальный размер сетки равным 5
+    startGame(2); // Устанавливаем начальный размер сетки
 });
 
 function showMenu() {
@@ -38,8 +42,8 @@ function initGame(size) {
     }
     console.log('Generated map:', state.map);
     renderMap(scale, offset);
-    addUnit(0, 0, 'soldier', 'player1');
-    addUnit(1, -1, 'archer', 'player2');
+    addUnit(0, 0, 0, 'soldier', 'player1');
+    addUnit(1, -1, 0, 'archer', 'player2');
     renderUnits(scale, offset);
     setupEventListeners();
 }
@@ -108,4 +112,4 @@ window.startGame = startGame;
 window.zoomIn = zoomIn;
 window.zoomOut = zoomOut;
 
-export { state };
+export { state, mapOffsetX, mapOffsetY };

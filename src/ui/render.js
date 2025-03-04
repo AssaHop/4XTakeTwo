@@ -1,5 +1,5 @@
 import { cubeToPixel, HEX_RADIUS, squashFactor } from '../world/map.js';
-import { state } from '../core/state.js';
+import { state, mapOffsetX, mapOffsetY } from '../core/game.js';
 import { updateEndTurnButton } from './events.js';
 
 let scale = 1; 
@@ -29,8 +29,8 @@ function renderMap(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x: h
 
     state.map.forEach(row => {
         row.forEach(cell => {
-            const { x, y } = cubeToPixel(cell.q, cell.r, cell.s, offsetX / scale, offsetY / scale, hexOffset.x, hexOffset.y);
-            const isHighlighted = state.highlightedHexes.some(hex => hex.q === cell.q && hex.r === cell.r);
+            const { x, y } = cubeToPixel(cell.q, cell.r, cell.s, mapOffsetX, mapOffsetY, hexOffset.x, hexOffset.y);
+            const isHighlighted = state.highlightedHexes.some(hex => hex.q === cell.q && hex.r === cell.r && hex.s === cell.s);
             drawHex(ctx, x, y, HEX_RADIUS, cell.type, isHighlighted); 
         });
     });
@@ -68,7 +68,7 @@ function renderUnits(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x:
     ctx.scale(newScale, newScale); 
 
     state.units.forEach(unit => {
-        const { x, y } = cubeToPixel(unit.q, unit.r, unit.s, offsetX / newScale, offsetY / newScale, hexOffset.x, hexOffset.y);
+        const { x, y } = cubeToPixel(unit.q, unit.r, unit.s, mapOffsetX, mapOffsetY, hexOffset.x, hexOffset.y);
         drawUnit(ctx, x, y, unit);
     });
 
@@ -82,7 +82,7 @@ function drawUnit(ctx, x, y, unit) {
     ctx.scale(1, 1 / squashFactor); 
     ctx.beginPath();
     ctx.arc(x, y * squashFactor, HEX_RADIUS / 2, 0, 2 * Math.PI); 
-    ctx.fillStyle = unit.color;
+    ctx.fillStyle = unit.color || '#000'; // Добавляем цвет по умолчанию
     ctx.fill();
     ctx.stroke();
     if (unit.selected) {

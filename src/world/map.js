@@ -1,18 +1,22 @@
+import { mapOffsetX, mapOffsetY } from '../core/game.js';
+
 const map = [];
 const HEX_RADIUS = 40;
 
 // Параметры расстояний между гексами по горизонтали и вертикали
-const HORIZONTAL_SPACING = 1; // Коэффициент для увеличения расстояния по горизонтали
-const VERTICAL_SPACING = 1; // Коэффициент для увеличения расстояния по вертикали
+const HORIZONTAL_SPACING = 1; // Коэффицент для увеличения расстояния по горизонтали
+const VERTICAL_SPACING = 1; // Коэффицент для увеличения расстояния по вертикали
 
-// Коэффициент сжатия для вертикального расстояния
+// Коэффицент сжатия для вертикального расстояния
 const squashFactor = 0.7; // Например, сжатие на 20%
 
-function cubeToPixel(q, r, s, offsetX = 0, offsetY = 0) {
-    // Применяем коэффициент сжатия только к вертикальному расстоянию
-    const xCoord = HEX_RADIUS * Math.sqrt(3) * (q + r / 2) * HORIZONTAL_SPACING + offsetX;
-    const yCoord = HEX_RADIUS * 3 / 2 * r * VERTICAL_SPACING * squashFactor + offsetY;
-    return { x: xCoord, y: yCoord };
+function cubeToPixel(q, r, s, offsetX = 0, offsetY = 0, hexOffsetX = 0, hexOffsetY = 0) {
+    const size = HEX_RADIUS;
+    const x = size * (Math.sqrt(3) * q + Math.sqrt(3) / 2 * r) + mapOffsetX + hexOffsetX;
+    const y = size * (3 / 2 * r * squashFactor) + mapOffsetY + hexOffsetY;
+
+    console.log(`🔄 cubeToPixel: (q: ${q}, r: ${r}, s: ${s}) -> (x: ${x}, y: ${y})`);
+    return { x, y };
 }
 
 const directions = [
