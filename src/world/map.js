@@ -15,7 +15,7 @@ function cubeToPixel(q, r, s, offsetX = 0, offsetY = 0, hexOffsetX = 0, hexOffse
     const x = size * (Math.sqrt(3) * q + Math.sqrt(3) / 2 * r) + mapOffsetX + hexOffsetX;
     const y = size * (3 / 2 * r * squashFactor) + mapOffsetY + hexOffsetY;
 
-    console.log(`🔄 cubeToPixel: (q: ${q}, r: ${r}, s: ${s}) -> (x: ${x}, y: ${y})`);
+    
     return { x, y };
 }
 
