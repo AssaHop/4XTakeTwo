@@ -1,11 +1,14 @@
+// 📂 events.js — обработчики событий
+
 import { resetUnitsActions, selectUnit } from '../mechanics/units.js';
 import { renderUnits, renderMap, highlightHexes } from './render.js';
-import { state, mapOffsetX, mapOffsetY } from '../core/game.js';
+import { state } from '../core/state.js';
 import { HEX_RADIUS, squashFactor } from '../world/map.js';
 
 function setupEventListeners() {
-    console.log("Event listeners setup initialized");
+    console.log("🎯 Event listeners setup initialized");
 
+    // 🟥 Кнопка конца хода
     document.addEventListener('DOMContentLoaded', () => {
         const endTurnButton = document.getElementById('end-turn-button');
         if (endTurnButton) {
@@ -13,18 +16,22 @@ function setupEventListeners() {
                 endTurn();
             });
         } else {
-            console.error("Element with ID 'end-turn-button' not found");
+            console.error("❌ Element with ID 'end-turn-button' not found");
         }
     });
 
+    // 🎯 Обработка клика по canvas
     const canvas = document.getElementById('game-canvas');
     canvas.addEventListener('click', handleCanvasClick);
 }
 
+// 📌 Обработка клика по canvas
 function handleCanvasClick(event) {
     const { x, y } = getCanvasCoordinates(event);
-    console.log(`Canvas clicked at: (${x}, ${y})`);
+    console.log(`🖱️ Canvas clicked at: (${x}, ${y})`);
+
     const selectedUnit = state.selectedUnit;
+
     if (selectedUnit) {
         handleUnitMovement(selectedUnit, x, y);
     } else {
@@ -32,6 +39,7 @@ function handleCanvasClick(event) {
     }
 }
 
+// 📌 Перевод client → canvas-координат
 function getCanvasCoordinates(event) {
     const canvas = document.getElementById('game-canvas');
     const rect = canvas.getBoundingClientRect();
@@ -41,41 +49,47 @@ function getCanvasCoordinates(event) {
     };
 }
 
+// 📌 Логика выбора юнита
 function handleUnitSelection(x, y) {
     const unit = state.units.find(unit => isUnitClicked(unit, x, y));
     if (unit) {
-        console.log(`Unit selected at: (${unit.q}, ${unit.r}, ${unit.s})`);
+        console.log(`✅ Unit selected at: (${unit.q}, ${unit.r}, ${unit.s})`);
         selectUnit(unit);
     }
 }
 
+// 📌 Логика перемещения юнита
 function handleUnitMovement(unit, x, y) {
     const hexCoords = pixelToHex(x, y);
-    console.log(`Unit moved to: (${hexCoords.q}, ${hexCoords.r}, ${hexCoords.s})`);
+    console.log(`➡️ Unit moved to: (${hexCoords.q}, ${hexCoords.r}, ${hexCoords.s})`);
+
     unit.moveTo(hexCoords.q, hexCoords.r, hexCoords.s);
     state.selectedUnit = null;
     state.highlightedHexes = [];
-    renderMap();
-    renderUnits();
+
+    renderMap(state.scale, state.offset);
+    renderUnits(state.scale, state.offset);
 }
 
+// 📌 Преобразование pixel → cube-координат
 function pixelToHex(x, y) {
-    console.log(`➡️ pixelToHex called with: x = ${x}, y = ${y}`);
-    
+    console.log(`🧮 pixelToHex called with: x = ${x}, y = ${y}`);
+
     const size = HEX_RADIUS;
-    const scale = window.scale || 1;
+    const scale = state.scale ?? 1;
+    const offsetX = state.offset?.x ?? 0;
+    const offsetY = state.offset?.y ?? 0;
 
-    // Вычитаем смещение карты (центрируем расчет)
-    const adjustedX = (x - mapOffsetX) / scale;
-    const adjustedY = (y - mapOffsetY) / scale;
+    const adjustedX = (x - offsetX) / scale;
+    const adjustedY = (y - offsetY) / scale;
 
-    console.log(`Adjusted coordinates: (${adjustedX}, ${adjustedY})`);
+    console.log(`📐 Adjusted coordinates: (${adjustedX}, ${adjustedY})`);
 
     const q = (Math.sqrt(3) / 3 * adjustedX - 1 / 3 * adjustedY) / size;
     const r = (2 / 3 * adjustedY) / (size * squashFactor);
     const s = -q - r;
 
-    console.log(`Calculated fractional coordinates: (q: ${q}, r: ${r}, s: ${s})`);
+    console.log(`📐 Calculated fractional coordinates: (q: ${q}, r: ${r}, s: ${s})`);
 
     const roundedCube = cubeRound({ q, r, s });
     console.log(`✅ Pixel to Hex result: (q: ${roundedCube.q}, r: ${roundedCube.r}, s: ${roundedCube.s})`);
@@ -83,6 +97,7 @@ function pixelToHex(x, y) {
     return roundedCube;
 }
 
+// 📌 Округление cube-координат
 function cubeRound(cube) {
     let q = Math.round(cube.q);
     let r = Math.round(cube.r);
@@ -103,29 +118,31 @@ function cubeRound(cube) {
     return { q, r, s };
 }
 
+// 📌 Проверка попадания по юниту
 function isUnitClicked(unit, x, y) {
     const { q, r, s } = pixelToHex(x, y);
-    console.log(`Unit coordinates: (q: ${unit.q}, r: ${unit.r}, s: ${unit.s})`);
     const isClicked = unit.q === q && unit.r === r && unit.s === s;
-    console.log(`Is unit clicked: (q: ${q}, r: ${r}, s: ${s}) -> ${isClicked}`);
+    console.log(`📍 Is unit clicked: (target qrs: ${q},${r},${s}) → ${isClicked}`);
     return isClicked;
 }
 
+// 📌 Завершение хода
 function endTurn() {
     resetUnitsActions();
     state.selectedUnit = null;
     state.highlightedHexes = [];
-    renderMap();
-    renderUnits();
+    renderMap(state.scale, state.offset);
+    renderUnits(state.scale, state.offset);
     updateEndTurnButton(false);
 }
 
+// 📌 Управление кнопкой конца хода
 function updateEndTurnButton(enabled) {
     const button = document.getElementById('end-turn-button');
     if (button) {
         button.disabled = !enabled;
     } else {
-        console.error("Element with ID 'end-turn-button' not found");
+        console.error("❌ Element with ID 'end-turn-button' not found");
     }
 }
 
