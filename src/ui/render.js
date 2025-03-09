@@ -2,23 +2,27 @@ import { cubeToPixel, HEX_RADIUS, squashFactor } from '../world/map.js';
 import { state, mapOffsetX, mapOffsetY } from '../core/game.js';
 import { updateEndTurnButton } from './events.js';
 
-let scale = 1; 
-let hexOffsetX = 0; 
-let hexOffsetY = 0; 
+let scale = 1;
+let hexOffsetX = 0;
+let hexOffsetY = 0;
 
-function renderMap(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x: hexOffsetX, y: hexOffsetY }) {
-    scale = newScale; 
+function renderMap(newScale = state.scale ?? scale, offset = state.offset ?? { x: 0, y: 0 }, hexOffset = { x: hexOffsetX, y: hexOffsetY }) {
+    scale = newScale;
+    state.scale = scale;
+    state.offset = offset;
+
     const canvas = document.getElementById('game-canvas');
     const ctx = canvas.getContext('2d');
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
 
-    const offsetX = canvas.width / 2 + offset.x;
-    const offsetY = canvas.height / 2 + offset.y;
+    const offsetX = offset.x;
+    const offsetY = offset.y;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
-    ctx.scale(scale, scale); 
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
 
     if (!state.map || state.map.length === 0) {
         console.error('Map data is empty');
@@ -29,12 +33,12 @@ function renderMap(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x: h
 
     state.map.forEach(row => {
         row.forEach(cell => {
-            const { x, y } = cubeToPixel(cell.q, cell.r, cell.s, mapOffsetX, mapOffsetY, hexOffset.x, hexOffset.y);
+            const { x, y } = cubeToPixel(cell.q, cell.r, cell.s, 0, 0, hexOffset.x, hexOffset.y);
             const isHighlighted = state.highlightedHexes.some(hex => hex.q === cell.q && hex.r === cell.r && hex.s === cell.s);
-            drawHex(ctx, x, y, HEX_RADIUS, cell.type, isHighlighted); 
+            drawHex(ctx, x, y, HEX_RADIUS, cell.type, isHighlighted);
         });
     });
-
+    console.log(`🎨 FINAL RENDER - Scale: ${scale}, Offset: (${offset.x}, ${offset.y})`);
     ctx.restore();
     console.log('Map rendered');
 }
@@ -44,7 +48,7 @@ function drawHex(ctx, x, y, radius, type, isHighlighted = false) {
     for (let i = 0; i < 6; i++) {
         const angle = 2 * Math.PI / 6 * (i + 0.5);
         const x_i = x + radius * Math.cos(angle);
-        const y_i = y + radius * Math.sin(angle) * squashFactor; 
+        const y_i = y + radius * Math.sin(angle) * squashFactor;
         if (i === 0) {
             ctx.moveTo(x_i, y_i);
         } else {
@@ -57,21 +61,22 @@ function drawHex(ctx, x, y, radius, type, isHighlighted = false) {
     ctx.stroke();
 }
 
-function renderUnits(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x: hexOffsetX, y: hexOffsetY }) {
+function renderUnits(newScale = state.scale ?? scale, offset = state.offset ?? { x: 0, y: 0 }, hexOffset = { x: hexOffsetX, y: hexOffsetY }) {
     const canvas = document.getElementById('game-canvas');
     const ctx = canvas.getContext('2d');
 
-    const offsetX = canvas.width / 2 + offset.x;
-    const offsetY = canvas.height / 2 + offset.y;
+    const offsetX = offset.x;
+    const offsetY = offset.y;
 
     ctx.save();
-    ctx.scale(newScale, newScale); 
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(newScale, newScale);
 
     state.units.forEach(unit => {
-        const { x, y } = cubeToPixel(unit.q, unit.r, unit.s, mapOffsetX, mapOffsetY, hexOffset.x, hexOffset.y);
+        const { x, y } = cubeToPixel(unit.q, unit.r, unit.s, 0, 0, hexOffset.x, hexOffset.y);
         drawUnit(ctx, x, y, unit);
     });
-
+    console.log(`🎨 FINAL RENDER - Scale: ${scale}, Offset: (${offset.x}, ${offset.y})`);
     ctx.restore();
     console.log('Units rendered');
     updateEndTurnButton(state.units.every(unit => unit.actions === 0));
@@ -79,10 +84,10 @@ function renderUnits(newScale = scale, offset = { x: 0, y: 0 }, hexOffset = { x:
 
 function drawUnit(ctx, x, y, unit) {
     ctx.save();
-    ctx.scale(1, 1 / squashFactor); 
+    ctx.scale(1, 1);
     ctx.beginPath();
-    ctx.arc(x, y * squashFactor, HEX_RADIUS / 2, 0, 2 * Math.PI); 
-    ctx.fillStyle = unit.color || '#000'; // Добавляем цвет по умолчанию
+    ctx.arc(x, y * squashFactor, HEX_RADIUS / 2, 0, 2 * Math.PI);
+    ctx.fillStyle = unit.color || '#000';
     ctx.fill();
     ctx.stroke();
     if (unit.selected) {
@@ -97,7 +102,7 @@ function drawUnit(ctx, x, y, unit) {
 
 function highlightHexes(hexes) {
     state.highlightedHexes = hexes;
-    renderMap(scale, { x: hexOffsetX, y: hexOffsetY });
+    renderMap(state.scale, state.offset);
 }
 
 export { renderMap, renderUnits, highlightHexes };
