@@ -25,13 +25,14 @@
 
 #end-turn-button {
     position: absolute;
-    bottom: 10px;
-    right: 10px;
+    top: 10px;
+    left: 10px;
     padding: 10px 20px;
     background-color: #f00;
     color: #fff;
     border: none;
     cursor: pointer;
+    z-index: 1000; /* Убедиться, что кнопка выше всего */
 }
 
 #end-turn-button:disabled {

@@ -1,4 +1,4 @@
-import { mapOffsetX, mapOffsetY } from '../core/game.js';
+import { scale, mapOffsetX, mapOffsetY } from '../core/game.js';
 
 const map = [];
 const HEX_RADIUS = 40;
@@ -12,16 +12,15 @@ const squashFactor = 0.7; // Например, сжатие на 20%
 
 function cubeToPixel(q, r, s, offsetX = 0, offsetY = 0, hexOffsetX = 0, hexOffsetY = 0) {
     const size = HEX_RADIUS;
-    const x = size * (Math.sqrt(3) * q + Math.sqrt(3) / 2 * r) + mapOffsetX + hexOffsetX;
-    const y = size * (3 / 2 * r * squashFactor) + mapOffsetY + hexOffsetY;
-
-    
+    const x = size * (Math.sqrt(3) * q + Math.sqrt(3) / 2 * r) + offsetX + hexOffsetX;
+    const y = size * (3 / 2 * r * squashFactor) + offsetY + hexOffsetY;
+    console.log(`📍 cubeToPixel - q: ${q}, r: ${r}, s: ${s} -> x: ${x}, y: ${y}, offsetX: ${offsetX}, offsetY: ${offsetY}`);
     return { x, y };
 }
 
 const directions = [
     { dq: 1, dr: -1, ds: 0 },
-    { dq: 1, dr: 0, ds: -1 },
+    { dq: 1, dr: 0, ds: -1 },   
     { dq: 0, dr: 1, ds: -1 },
     { dq: -1, dr: 1, ds: 0 },
     { dq: -1, dr: 0, ds: 1 },

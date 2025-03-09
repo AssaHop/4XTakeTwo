@@ -75,6 +75,7 @@ function renderUnits(newScale = state.scale ?? scale, offset = state.offset ?? {
     state.units.forEach(unit => {
         const { x, y } = cubeToPixel(unit.q, unit.r, unit.s, 0, 0, hexOffset.x, hexOffset.y);
         drawUnit(ctx, x, y, unit);
+        console.log(`🧍 Draw unit at cube(${unit.q},${unit.r},${unit.s}) → pixel(${x.toFixed(2)},${y.toFixed(2)})`);
     });
     console.log(`🎨 FINAL RENDER - Scale: ${scale}, Offset: (${offset.x}, ${offset.y})`);
     ctx.restore();
@@ -84,9 +85,8 @@ function renderUnits(newScale = state.scale ?? scale, offset = state.offset ?? {
 
 function drawUnit(ctx, x, y, unit) {
     ctx.save();
-    ctx.scale(1, 1);
     ctx.beginPath();
-    ctx.arc(x, y * squashFactor, HEX_RADIUS / 2, 0, 2 * Math.PI);
+    ctx.arc(x, y, HEX_RADIUS / 2, 0, 2 * Math.PI);
     ctx.fillStyle = unit.color || '#000';
     ctx.fill();
     ctx.stroke();

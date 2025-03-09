@@ -83,75 +83,50 @@ window.addEventListener('resize', () => {
 
 
 
-// 📌 Настройка управления маcштабированием с учётом курсора
+// 📌 Настройка управления маcштабированием — колесо мыши
 function setupZoomControls() {
     const canvas = document.getElementById('game-canvas');
 
     canvas.addEventListener('wheel', (event) => {
         event.preventDefault();
 
-        // 🟢 Получаем координаты курсора
-        const rect = canvas.getBoundingClientRect();
-        const cursorX = event.clientX - rect.left;
-        const cursorY = event.clientY - rect.top;
-
-        // 🟡 Выбираем коэффициент зума (увеличение или уменьшение)
         const zoomFactor = event.deltaY < 0 ? 1.1 : 0.9;
 
-        // Вызываем основную функцию масштабирования
-        applyZoom(zoomFactor, cursorX, cursorY);
+        // 🟢 Передаём координаты курсора в applyZoom
+        applyZoom(zoomFactor, event.clientX, event.clientY);
     });
 }
 
-// 📌 Универсальная функция масштабирования
+// 📌 Универсальная функция зума — учитывает курсор
 function applyZoom(zoomFactor, cursorX, cursorY) {
-    // 🟢 Получаем текущие координаты курсора
-    const rect = document.getElementById('game-canvas').getBoundingClientRect();
-    cursorX = cursorX ?? rect.width / 2; // Если координаты не переданы, берём центр
-    cursorY = cursorY ?? rect.height / 2;
+    const canvas = document.getElementById('game-canvas');
+    const rect = canvas.getBoundingClientRect();
 
-    // 🔵 Переводим экранные координаты в мировые до зума
-    const worldXBefore = (cursorX - offset.x) / scale;
-    const worldYBefore = (cursorY - offset.y) / scale;
+    // 🔍 Преобразуем координаты курсора в локальные координаты внутри canvas
+    const fixedX = cursorX - rect.left;
+    const fixedY = cursorY - rect.top;
 
-    // 🟡 Запоминаем старый масштаб и вычисляем новый
-    const prevScale = scale;
-    scale *= zoomFactor;
+    // 📍 Мировые координаты до изменения масштаба
+    const worldXBefore = (fixedX - state.offset.x) / state.scale;
+    const worldYBefore = (fixedY - state.offset.y) / state.scale;
 
-    // 📌 Обновляем смещение, чтобы точка под курсором оставалась на месте
-    offset.x = cursorX - worldXBefore * scale;
-    offset.y = cursorY - worldYBefore * scale;
+    // 🔄 Обновляем масштаб
+    const prevScale = state.scale;
+    state.scale *= zoomFactor;
 
-    // 🔵 Пересчитываем мировые координаты после зума
-    const worldXAfter = (cursorX - offset.x) / scale;
-    const worldYAfter = (cursorY - offset.y) / scale;
+    // 🧮 Перерасчёт offset так, чтобы курсор остался на той же мировой точке
+    state.offset.x = fixedX - worldXBefore * state.scale;
+    state.offset.y = fixedY - worldYBefore * state.scale;
 
-    // 🛠️ Логирование для отладки
-    console.log(`🟢 Cursor - cursorX: ${cursorX}, cursorY: ${cursorY}`);
-    console.log(`🔵 World BEFORE - worldX: ${worldXBefore.toFixed(2)}, worldY: ${worldYBefore.toFixed(2)}`);
-    console.log(`🔄 Scaling - Old Scale: ${prevScale.toFixed(2)}, New Scale: ${scale.toFixed(2)}`);
-    console.log(`📌 New Offset: (${offset.x.toFixed(2)}, ${offset.y.toFixed(2)})`);
-    console.log(`🔵 World AFTER  - worldX: ${worldXAfter.toFixed(2)}, worldY: ${worldYAfter.toFixed(2)}`);
+    // console.log(`📐 applyZoom from cursor (${fixedX}, ${fixedY}) → scale ${prevScale.toFixed(3)} → ${state.scale.toFixed(3)}`);
+    // console.log(`📦 New offset: (${state.offset.x.toFixed(2)}, ${state.offset.y.toFixed(2)})`);
 
-    // 🔄 Перерисовываем карту
+    // 🔁 Перерисовываем всё
     requestAnimationFrame(() => {
-        renderMap(scale, offset);
-        renderUnits(scale, offset);
+        renderMap(state.scale, state.offset);
+        renderUnits(state.scale, state.offset);
     });
 }
-
-// 📌 Обновленные функции увеличения и уменьшения масштаба
-function zoomIn(cursorX, cursorY) {
-    applyZoom(1.1, cursorX, cursorY);
-}
-
-function zoomOut(cursorX, cursorY) {
-    applyZoom(0.9, cursorX, cursorY);
-}
-
-
-
-
 
 
 // 📌 Настройка управления перетаскиванием
@@ -163,25 +138,21 @@ function setupDragControls() {
             isDragging = true;
 
             // Запоминаем начальную позицию курсора относительно текущего смещения
-            dragStart.x = event.clientX - mapOffsetX;
-            dragStart.y = event.clientY - mapOffsetY;
+            dragStart.x = event.clientX - state.offset.x;
+            dragStart.y = event.clientY - state.offset.y;
         }
     });
 
     canvas.addEventListener('mousemove', (event) => {
         if (isDragging) {
             // Вычисляем новое смещение относительно начальной точки
-            offset.x = event.clientX - dragStart.x;
-            offset.y = event.clientY - dragStart.y;
+            state.offset.x = event.clientX - dragStart.x;
+            state.offset.y = event.clientY - dragStart.y;
 
-            // Теперь mapOffsetX/Y тоже обновляются в реальном времени
-            mapOffsetX = offset.x;
-            mapOffsetY = offset.y;
-
-            // Перерисовываем карту
+            // Перерисовываем карту с сохранённым масштабом
             requestAnimationFrame(() => {
-                renderMap(scale, offset);
-                renderUnits(scale, offset);
+                renderMap(state.scale, state.offset);
+                renderUnits(state.scale, state.offset);
             });
         }
     });
@@ -202,6 +173,7 @@ function setupDragControls() {
     });
 }
 
+
 // 🏁 Инициализация
 document.addEventListener('DOMContentLoaded', () => {
     setupUI();
@@ -216,7 +188,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // 📌 Глобальные функции
 window.startGame = startGame;
-window.zoomIn = zoomIn;
-window.zoomOut = zoomOut;
 
-export { state, mapOffsetX, mapOffsetY };
+export { state, scale, mapOffsetX, mapOffsetY };
