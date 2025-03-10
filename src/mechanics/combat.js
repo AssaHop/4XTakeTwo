@@ -36,7 +36,7 @@ function canAttack(attacker, target) {
     const dx = Math.abs(attacker.q - target.q);
     const dy = Math.abs(attacker.r - target.r);
     const dz = Math.abs(attacker.s - target.s);
-    return dx <= 1 && dy <= 1 && dz <= 1 && (dx + dy + dz) <= 2;
+    return dx <= attacker.attackRange && dy <= attacker.attackRange && dz <= attacker.attackRange;
 }
 
 export { performAttack, canAttack };
