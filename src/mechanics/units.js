@@ -1,5 +1,6 @@
-import { renderUnits, highlightHexes, renderMap } from '../ui/render.js';
+import { renderUnits, highlightHexes } from '../ui/render.js';
 import { state } from '../core/state.js';
+import { updateEndTurnButton } from '../ui/events.js';
 
 class Unit {
     constructor(q, r, s, type, owner) {
@@ -10,17 +11,30 @@ class Unit {
         this.owner = owner;
         this.actions = 1;
         this.selected = false;
+        this.hp = 3;
+        this.maxHp = 3;
     }
 
     moveTo(q, r, s) {
         if (this.actions <= 0) return;
         const targetCell = state.map.flat().find(c => c.q === q && c.r === r && c.s === s);
-        if (!targetCell || targetCell.type !== 'walkable') return;
-
+        const occupied = state.units.some(u => u.q === q && u.r === r && u.s === s);
+        if (!targetCell || targetCell.type !== 'walkable' || occupied) return;
+    
         this.q = q;
         this.r = r;
         this.s = s;
         this.actions -= 1;
+    
+        // 💥 Считаем как действие
+        state.hasActedThisTurn = true;
+        updateEndTurnButton(true);
+        if (this.actions <= 0) {
+            this.deselect();
+            state.selectedUnit = null;
+            state.highlightedHexes = [];
+        }
+        updateEndTurnButton(true);
     }
 
     getAvailableHexes() {
@@ -33,7 +47,8 @@ class Unit {
             const r = this.r + d.r;
             const s = this.s + d.s;
             const cell = state.map.flat().find(c => c.q === q && c.r === r && c.s === s);
-            return cell && cell.type === 'walkable' ? { q, r, s } : null;
+            const hasUnit = state.units.find(u => u.q === q && u.r === r && u.s === s);
+            return (cell && cell.type === 'walkable' && !hasUnit) ? { q, r, s } : null;
         }).filter(Boolean);
     }
 
@@ -46,23 +61,18 @@ const units = state.units;
 
 function addUnit(q, r, s, type, owner) {
     const cell = state.map.flat().find(c => c.q === q && c.r === r && c.s === s);
-    if (!cell || cell.type !== 'walkable') return;
+    const unitOnCell = units.find(u => u.q === q && u.r === r && u.s === s);
+    if (!cell || cell.type !== 'walkable' || unitOnCell) return;
 
     const unit = new Unit(q, r, s, type, owner);
     units.push(unit);
     renderUnits();
 }
 
-function generateUnits(num) {
+function generateUnits(unitsList) {
     units.length = 0;
-    let attempts = 0;
-    while (units.length < num && attempts < 1000) {
-        const flat = state.map.flat().filter(c => c.type === 'walkable');
-        const cell = flat[Math.floor(Math.random() * flat.length)];
-        if (!units.find(u => u.q === cell.q && u.r === cell.r && u.s === cell.s)) {
-            addUnit(cell.q, cell.r, cell.s, 'soldier', 'player');
-        }
-        attempts++;
+    for (const unit of unitsList) {
+        addUnit(unit.q, unit.r, unit.s, unit.type, unit.owner);
     }
 }
 

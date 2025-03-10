@@ -1,6 +1,5 @@
 import { cubeToPixel, HEX_RADIUS, squashFactor } from '../world/map.js';
 import { state, mapOffsetX, mapOffsetY } from '../core/game.js';
-import { updateEndTurnButton } from './events.js';
 
 let scale = 1;
 let hexOffsetX = 0;
@@ -27,9 +26,9 @@ function renderMap(newScale = state.scale ?? scale, offset = state.offset ?? { x
     if (!state.map || state.map.length === 0) {
         console.error('Map data is empty');
         return;
-    } else {
-        console.log('Rendering map with data:', state.map);
     }
+
+    console.log('Rendering map with data:', state.map);
 
     state.map.forEach(row => {
         row.forEach(cell => {
@@ -38,6 +37,7 @@ function renderMap(newScale = state.scale ?? scale, offset = state.offset ?? { x
             drawHex(ctx, x, y, HEX_RADIUS, cell.type, isHighlighted);
         });
     });
+
     console.log(`🎨 FINAL RENDER - Scale: ${scale}, Offset: (${offset.x}, ${offset.y})`);
     ctx.restore();
     console.log('Map rendered');
@@ -77,10 +77,9 @@ function renderUnits(newScale = state.scale ?? scale, offset = state.offset ?? {
         drawUnit(ctx, x, y, unit);
         console.log(`🧍 Draw unit at cube(${unit.q},${unit.r},${unit.s}) → pixel(${x.toFixed(2)},${y.toFixed(2)})`);
     });
-    console.log(`🎨 FINAL RENDER - Scale: ${scale}, Offset: (${offset.x}, ${offset.y})`);
+
     ctx.restore();
     console.log('Units rendered');
-    updateEndTurnButton(state.units.every(unit => unit.actions === 0));
 }
 
 function drawUnit(ctx, x, y, unit) {
@@ -90,6 +89,8 @@ function drawUnit(ctx, x, y, unit) {
     ctx.fillStyle = unit.color || '#000';
     ctx.fill();
     ctx.stroke();
+
+    // Отметка выбранного
     if (unit.selected) {
         ctx.lineWidth = 3;
         ctx.strokeStyle = '#ff0';
@@ -97,6 +98,12 @@ function drawUnit(ctx, x, y, unit) {
         ctx.lineWidth = 1;
         ctx.strokeStyle = '#000';
     }
+
+    // ❤️ Отрисовка HP
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${unit.hp}/${unit.maxHp}`, x, y + HEX_RADIUS / 2 + 12);
     ctx.restore();
 }
 

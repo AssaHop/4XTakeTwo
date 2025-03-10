@@ -8,7 +8,7 @@ function cubeToPixel(q, r, s, offsetX = 0, offsetY = 0, hexOffsetX = 0, hexOffse
     const size = HEX_RADIUS;
     const x = size * (Math.sqrt(3) * q + Math.sqrt(3) / 2 * r) + offsetX + hexOffsetX;
     const y = size * (3 / 2 * r * squashFactor) + offsetY + hexOffsetY;
-    console.log(`📍 cubeToPixel - q: ${q}, r: ${r}, s: ${s} → x: ${x.toFixed(2)}, y: ${y.toFixed(2)}, offsetX: ${offsetX}, offsetY: ${offsetY}`);
+    // console.log(`📍 cubeToPixel - q: ${q}, r: ${r}, s: ${s} → x: ${x.toFixed(2)}, y: ${y.toFixed(2)}, offsetX: ${offsetX}, offsetY: ${offsetY}`);
     return { x, y };
 }
 

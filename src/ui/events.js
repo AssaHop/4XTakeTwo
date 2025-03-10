@@ -4,21 +4,20 @@ import { resetUnitsActions, selectUnit } from '../mechanics/units.js';
 import { renderUnits, renderMap, highlightHexes } from './render.js';
 import { state } from '../core/state.js';
 import { HEX_RADIUS, squashFactor } from '../world/map.js';
+import { performAttack, canAttack } from '../mechanics/combat.js';
 
 function setupEventListeners() {
     console.log("🎯 Event listeners setup initialized");
 
     // 🟥 Кнопка конца хода
-    document.addEventListener('DOMContentLoaded', () => {
-        const endTurnButton = document.getElementById('end-turn-button');
-        if (endTurnButton) {
-            endTurnButton.addEventListener('click', () => {
-                endTurn();
-            });
-        } else {
-            console.error("❌ Element with ID 'end-turn-button' not found");
-        }
-    });
+    const endTurnButton = document.getElementById('end-turn-button');
+    if (endTurnButton) {
+        endTurnButton.addEventListener('click', () => {
+            endTurn();
+        });
+    } else {
+        console.error("❌ Element with ID 'end-turn-button' not found");
+    }
 
     // 🎯 Обработка клика по canvas
     const canvas = document.getElementById('game-canvas');
@@ -28,16 +27,55 @@ function setupEventListeners() {
 // 📌 Обработка клика по canvas
 function handleCanvasClick(event) {
     const { x, y } = getCanvasCoordinates(event);
-    console.log(`🖱️ Canvas clicked at: (${x}, ${y})`);
+    const clickedHex = pixelToHex(x, y);
+    console.log(`🖱️ Canvas clicked at: (${x}, ${y}) → cube(${clickedHex.q},${clickedHex.r},${clickedHex.s})`);
+
+    const clickedUnit = state.units.find(u =>
+        u.q === clickedHex.q && u.r === clickedHex.r && u.s === clickedHex.s
+    );
 
     const selectedUnit = state.selectedUnit;
 
-    if (selectedUnit) {
-        handleUnitMovement(selectedUnit, x, y);
-    } else {
-        handleUnitSelection(x, y);
+    // ⚔️ Если клик по врагу и у нас выбран свой юнит — попытка атаки
+    if (selectedUnit && clickedUnit && clickedUnit.owner !== selectedUnit.owner) {
+        if (canAttack(selectedUnit, clickedUnit)) {
+            performAttack(selectedUnit, clickedUnit);
+            if (selectedUnit.actions <= 0) {
+                selectedUnit.deselect();
+                state.selectedUnit = null;
+                state.highlightedHexes = [];
+            }
+            renderMap(state.scale, state.offset);
+            renderUnits(state.scale, state.offset);
+            return;
+        } else {
+            console.log("❌ Attack not allowed.");
+            return;
+        }
+    }
+
+    // ✅ Если клик по своему юниту — переключаем селекцию
+    if (clickedUnit && clickedUnit.owner === 'player1' && clickedUnit.actions > 0) {
+        console.log(`✅ Unit selected at: (${clickedUnit.q}, ${clickedUnit.r}, ${clickedUnit.s})`);
+        selectUnit(clickedUnit);
+        return;
+    }
+
+    // 🚶 Если выбран юнит и клик по пустому гексу — попытка перемещения
+    if (selectedUnit && !clickedUnit) {
+        selectedUnit.moveTo(clickedHex.q, clickedHex.r, clickedHex.s);
+
+        if (selectedUnit.actions <= 0) {
+            selectedUnit.deselect();
+            state.selectedUnit = null;
+            state.highlightedHexes = [];
+        }
+
+        renderMap(state.scale, state.offset);
+        renderUnits(state.scale, state.offset);
     }
 }
+
 
 // 📌 Перевод client → canvas-координат
 function getCanvasCoordinates(event) {
@@ -49,32 +87,8 @@ function getCanvasCoordinates(event) {
     };
 }
 
-// 📌 Логика выбора юнита
-function handleUnitSelection(x, y) {
-    const unit = state.units.find(unit => isUnitClicked(unit, x, y));
-    if (unit) {
-        console.log(`✅ Unit selected at: (${unit.q}, ${unit.r}, ${unit.s})`);
-        selectUnit(unit);
-    }
-}
-
-// 📌 Логика перемещения юнита
-function handleUnitMovement(unit, x, y) {
-    const hexCoords = pixelToHex(x, y);
-    console.log(`➡️ Unit moved to: (${hexCoords.q}, ${hexCoords.r}, ${hexCoords.s})`);
-
-    unit.moveTo(hexCoords.q, hexCoords.r, hexCoords.s);
-    state.selectedUnit = null;
-    state.highlightedHexes = [];
-
-    renderMap(state.scale, state.offset);
-    renderUnits(state.scale, state.offset);
-}
-
 // 📌 Преобразование pixel → cube-координат
 function pixelToHex(x, y) {
-    console.log(`🧮 pixelToHex called with: x = ${x}, y = ${y}`);
-
     const size = HEX_RADIUS;
     const scale = state.scale ?? 1;
     const offsetX = state.offset?.x ?? 0;
@@ -83,18 +97,11 @@ function pixelToHex(x, y) {
     const adjustedX = (x - offsetX) / scale;
     const adjustedY = (y - offsetY) / scale;
 
-    console.log(`📐 Adjusted coordinates: (${adjustedX}, ${adjustedY})`);
-
     const q = (Math.sqrt(3) / 3 * adjustedX - 1 / 3 * adjustedY) / size;
     const r = (2 / 3 * adjustedY) / (size * squashFactor);
     const s = -q - r;
 
-    console.log(`📐 Calculated fractional coordinates: (q: ${q}, r: ${r}, s: ${s})`);
-
-    const roundedCube = cubeRound({ q, r, s });
-    console.log(`✅ Pixel to Hex result: (q: ${roundedCube.q}, r: ${roundedCube.r}, s: ${roundedCube.s})`);
-
-    return roundedCube;
+    return cubeRound({ q, r, s });
 }
 
 // 📌 Округление cube-координат
@@ -118,19 +125,12 @@ function cubeRound(cube) {
     return { q, r, s };
 }
 
-// 📌 Проверка попадания по юниту
-function isUnitClicked(unit, x, y) {
-    const { q, r, s } = pixelToHex(x, y);
-    const isClicked = unit.q === q && unit.r === r && unit.s === s;
-    console.log(`📍 Is unit clicked: (target qrs: ${q},${r},${s}) → ${isClicked}`);
-    return isClicked;
-}
-
 // 📌 Завершение хода
 function endTurn() {
     resetUnitsActions();
     state.selectedUnit = null;
     state.highlightedHexes = [];
+    state.hasActedThisTurn = false;
     renderMap(state.scale, state.offset);
     renderUnits(state.scale, state.offset);
     updateEndTurnButton(false);
@@ -141,9 +141,10 @@ function updateEndTurnButton(enabled) {
     const button = document.getElementById('end-turn-button');
     if (button) {
         button.disabled = !enabled;
+        console.log(`🔘 End turn button ${enabled ? 'enabled' : 'disabled'}`);
     } else {
         console.error("❌ Element with ID 'end-turn-button' not found");
     }
 }
 
-export { endTurn, updateEndTurnButton, setupEventListeners };
+export { setupEventListeners, updateEndTurnButton, endTurn };

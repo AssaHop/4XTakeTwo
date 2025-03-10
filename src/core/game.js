@@ -1,13 +1,17 @@
-import { generateHexMap } from '../world/map.js';
+// 📂 game.js — основной файл инициализации
+
+// 📂 game.js — основной файл инициализации
+
 import { renderMap, renderUnits } from '../ui/render.js';
-import { addUnit } from '../mechanics/units.js';
+import { generateScenario, getInitialUnitsForScenario } from '../scenarios/scenarios.js';
+import { generateUnits } from '../mechanics/units.js';
 import { setupUI } from '../ui/setup.js';
-import { setupEventListeners } from '../ui/events.js';
+import { setupEventListeners, updateEndTurnButton } from '../ui/events.js'; // ✅ добавлено сюда
 import { state } from '../core/state.js';
 import { loadGameState, saveGameState } from '../core/savegame.js';
-import { generateScenario } from '../scenarios/scenarios.js';
 
-// Основные параметры
+
+// 📌 Параметры
 let scale = 1;
 let isDragging = false;
 let dragStart = { x: 0, y: 0 };
@@ -29,40 +33,52 @@ function updateMapOffset() {
     offset.y = mapOffsetY;
 }
 
-// 🖥️ Показываем меню
+// 📌 Меню
 function showMenu() {
     document.getElementById('menu-container').style.display = 'block';
     document.getElementById('game-container').style.display = 'none';
 }
 
-// 🕹️ Запуск игры (с выбором сценария)
+// 📌 Запуск игры
 function startGame(size = 2, scenarioName = 'default') {
     document.getElementById('menu-container').style.display = 'none';
     document.getElementById('game-container').style.display = 'block';
     initGame(size, scenarioName);
 }
 
-// 🔄 Инициализация игры
-function initGame(size) {
+function initGame(size, scenarioName = 'default') {
     updateMapOffset();
 
-    // 📦 Используем сценарий (можно 'default', 'island', 'maze')
-    state.map = generateScenario('default', size);
+    // 📦 Генерация карты
+    state.map = generateScenario(scenarioName, size);
 
     if (!state.map || state.map.length === 0) {
         console.error('❌ Map generation failed');
         return;
     }
 
+    // 📦 Получаем начальных юнитов для сценария
+    const unitsList = getInitialUnitsForScenario(scenarioName, state.map);
+    console.log('🧍 Units to generate:', unitsList);
+
+    if (!unitsList || unitsList.length === 0) {
+        console.warn('⚠️ No units defined for scenario, skipping unit generation.');
+    }
+
+    generateUnits(unitsList);
+    console.log('🧍 Units after generate:', state.units);
+
     renderMap(scale, offset);
-    addUnit(0, 0, 0, 'soldier', 'player1');
-    addUnit(1, -1, 0, 'archer', 'player2');
     renderUnits(scale, offset);
     setupEventListeners();
-    console.log(`initGame - scale: ${scale}, offset.x: ${offset.x}, offset.y: ${offset.y}`);
+
+    // 💡 Сброс состояния кнопки "End Turn"
+    updateEndTurnButton(false);
+
+    console.log(`✅ Game initialized: scenario=${scenarioName}, size=${size}`);
 }
 
-// 📌 Устанавливаем canvas
+// 📌 Настройка canvas
 function setupCanvas() {
     const canvas = document.getElementById('game-canvas');
     canvas.width = canvas.clientWidth;
@@ -70,7 +86,7 @@ function setupCanvas() {
     updateMapOffset();
 }
 
-// 📐 Масштабирование карты
+// 📌 Масштабирование
 function setupZoomControls() {
     const canvas = document.getElementById('game-canvas');
     canvas.addEventListener('wheel', (event) => {
@@ -99,7 +115,7 @@ function applyZoom(zoomFactor, cursorX, cursorY) {
     });
 }
 
-// 🖱️ Перетаскивание карты
+// 📌 Перетаскивание карты
 function setupDragControls() {
     const canvas = document.getElementById('game-canvas');
 
@@ -127,7 +143,7 @@ function setupDragControls() {
     canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 }
 
-// 📦 Сохранение и загрузка
+// 📦 Сохранение/Загрузка
 function saveGame() {
     saveGameState();
 }
@@ -155,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showMenu();
         setupZoomControls();
         setupDragControls();
-        startGame(2, 'default'); // можно заменить на 'maze', 'island' и т.д.
+        startGame(2, 'default');
     });
 });
 
