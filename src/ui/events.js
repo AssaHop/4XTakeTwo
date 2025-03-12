@@ -1,15 +1,15 @@
-// 📂 events.js — обработчики событий
+// 📂 ui/events.js — обработчики событий (FSM-расширенная версия)
 
 import { resetUnitsActions, selectUnit } from '../mechanics/units.js';
 import { renderUnits, renderMap, highlightHexes } from './render.js';
 import { state } from '../core/state.js';
 import { HEX_RADIUS, squashFactor } from '../world/map.js';
 import { performAttack, canAttack } from '../mechanics/combat.js';
+import { GameState, getState, transitionTo, is } from '../core/gameStateMachine.js';
 
 function setupEventListeners() {
     console.log("🎯 Event listeners setup initialized");
 
-    // 🟥 Кнопка конца хода
     const endTurnButton = document.getElementById('end-turn-button');
     if (endTurnButton) {
         endTurnButton.addEventListener('click', () => {
@@ -19,32 +19,26 @@ function setupEventListeners() {
         console.error("❌ Element with ID 'end-turn-button' not found");
     }
 
-    // 🎯 Обработка клика по canvas
     const canvas = document.getElementById('game-canvas');
     canvas.addEventListener('click', handleCanvasClick);
 }
 
-// 📌 Обработка клика по canvas
 function handleCanvasClick(event) {
     const { x, y } = getCanvasCoordinates(event);
     const clickedHex = pixelToHex(x, y);
     console.log(`🖱️ Canvas clicked at: (${x}, ${y}) → cube(${clickedHex.q},${clickedHex.r},${clickedHex.s})`);
 
-    const clickedUnit = state.units.find(u =>
-        u.q === clickedHex.q && u.r === clickedHex.r && u.s === clickedHex.s
-    );
-
+    const clickedUnit = state.units.find(u => u.q === clickedHex.q && u.r === clickedHex.r && u.s === clickedHex.s);
     const selectedUnit = state.selectedUnit;
 
-    // ⚔️ Если клик по врагу и у нас выбран свой юнит — попытка атаки
+    if (is(GameState.ENEMY_TURN)) return;
+
     if (selectedUnit && clickedUnit && clickedUnit.owner !== selectedUnit.owner) {
         if (canAttack(selectedUnit, clickedUnit)) {
+            transitionTo(GameState.UNIT_ATTACKING);
             performAttack(selectedUnit, clickedUnit);
-            if (selectedUnit.actions <= 0) {
-                selectedUnit.deselect();
-                state.selectedUnit = null;
-                state.highlightedHexes = [];
-            }
+            resetSelection();
+            transitionTo(GameState.IDLE);
             renderMap(state.scale, state.offset);
             renderUnits(state.scale, state.offset);
             return;
@@ -54,30 +48,33 @@ function handleCanvasClick(event) {
         }
     }
 
-    // ✅ Если клик по своему юниту — переключаем селекцию
     if (clickedUnit && clickedUnit.owner === 'player1' && clickedUnit.actions > 0) {
         console.log(`✅ Unit selected at: (${clickedUnit.q}, ${clickedUnit.r}, ${clickedUnit.s})`);
+        transitionTo(GameState.UNIT_SELECTED);
         selectUnit(clickedUnit);
         return;
     }
 
-    // 🚶 Если выбран юнит и клик по пустому гексу — попытка перемещения
     if (selectedUnit && !clickedUnit) {
-        selectedUnit.moveTo(clickedHex.q, clickedHex.r, clickedHex.s);
-
-        if (selectedUnit.actions <= 0) {
-            selectedUnit.deselect();
-            state.selectedUnit = null;
-            state.highlightedHexes = [];
+        const moved = selectedUnit.moveTo(clickedHex.q, clickedHex.r, clickedHex.s);
+        if (moved) {
+            if (selectedUnit.actions <= 0) resetSelection();
+            transitionTo(GameState.UNIT_MOVING);
+            transitionTo(GameState.IDLE);
+            renderMap(state.scale, state.offset);
+            renderUnits(state.scale, state.offset);
         }
-
-        renderMap(state.scale, state.offset);
-        renderUnits(state.scale, state.offset);
     }
 }
 
+function resetSelection() {
+    if (state.selectedUnit) {
+        state.selectedUnit.deselect?.();
+    }
+    state.selectedUnit = null;
+    state.highlightedHexes = [];
+}
 
-// 📌 Перевод client → canvas-координат
 function getCanvasCoordinates(event) {
     const canvas = document.getElementById('game-canvas');
     const rect = canvas.getBoundingClientRect();
@@ -87,7 +84,6 @@ function getCanvasCoordinates(event) {
     };
 }
 
-// 📌 Преобразование pixel → cube-координат
 function pixelToHex(x, y) {
     const size = HEX_RADIUS;
     const scale = state.scale ?? 1;
@@ -104,7 +100,6 @@ function pixelToHex(x, y) {
     return cubeRound({ q, r, s });
 }
 
-// 📌 Округление cube-координат
 function cubeRound(cube) {
     let q = Math.round(cube.q);
     let r = Math.round(cube.r);
@@ -125,18 +120,16 @@ function cubeRound(cube) {
     return { q, r, s };
 }
 
-// 📌 Завершение хода
 function endTurn() {
+    transitionTo(GameState.ENEMY_TURN);
     resetUnitsActions();
-    state.selectedUnit = null;
-    state.highlightedHexes = [];
-    state.hasActedThisTurn = false;
+    resetSelection();
     renderMap(state.scale, state.offset);
     renderUnits(state.scale, state.offset);
     updateEndTurnButton(false);
+    transitionTo(GameState.IDLE);
 }
 
-// 📌 Управление кнопкой конца хода
 function updateEndTurnButton(enabled) {
     const button = document.getElementById('end-turn-button');
     if (button) {

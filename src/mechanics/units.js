@@ -1,3 +1,4 @@
+// 📂 mechanics/units.js
 import { renderUnits, highlightHexes } from '../ui/render.js';
 import { state } from '../core/state.js';
 import { updateEndTurnButton } from '../ui/events.js';
@@ -11,41 +12,36 @@ class Unit {
         this.owner = owner;
         this.actions = 1;
         this.selected = false;
-
-        // Добавим параметры диапазона
         this.moveRange = 1;
         this.attackRange = 3;
-
-        // Здоровье — можно вынести позже в конфиг
         this.hp = 3;
         this.maxHp = 3;
     }
 
     moveTo(q, r, s) {
-        if (this.actions <= 0) return;
-    
-        // Проверка — входит ли в доступные гексы
+        if (this.actions <= 0) return false;
+
         const allowedHexes = this.getAvailableHexes();
         const isAllowed = allowedHexes.some(h => h.q === q && h.r === r && h.s === s);
         if (!isAllowed) {
             console.log("❌ Hex out of range for move.");
-            return;
+            return false;
         }
-    
+
         const targetCell = state.map.flat().find(c => c.q === q && c.r === r && c.s === s);
-        if (!targetCell || targetCell.type !== 'walkable') return;
-    
+        if (!targetCell || targetCell.type !== 'walkable') return false;
+
         this.q = q;
         this.r = r;
         this.s = s;
         this.actions -= 1;
-    
         state.hasActedThisTurn = true;
-    
-        // 💥 Вот ключ
+
         import('../ui/events.js').then(({ updateEndTurnButton }) => {
             updateEndTurnButton(true);
         });
+
+        return true;
     }
 
     getAvailableHexes() {
@@ -72,7 +68,6 @@ class Unit {
     deselect() { this.selected = false; }
     resetActions() { this.actions = 1; }
 }
-
 
 const units = state.units;
 
