@@ -4,7 +4,7 @@ import { state } from '../core/state.js';
 import { updateEndTurnButton } from '../ui/events.js';
 
 class Unit {
-    constructor(q, r, s, type, owner) {
+    constructor(q, r, s, type, owner, options = {}) {
         this.q = q;
         this.r = r;
         this.s = s;
@@ -12,11 +12,19 @@ class Unit {
         this.owner = owner;
         this.actions = 1;
         this.selected = false;
-        this.moveRange = 1;
-        this.attackRange = 3;
-        this.hp = 3;
-        this.maxHp = 3;
-    }
+      
+        this.moveRange = options.moveRange || 1;
+        this.attackDamage = options.attackDamage || 1;
+        this.hp = options.hp || 3;
+        this.maxHp = options.maxHp || this.hp;
+      
+        this.modules = options.modules || [];
+      
+        // ✨ Применим поведенческие модули
+        import('../core/applyModules.js').then(({ applyModules }) => {
+          applyModules(this);
+        });
+      }
 
     moveTo(q, r, s) {
         if (this.actions <= 0) return false;
