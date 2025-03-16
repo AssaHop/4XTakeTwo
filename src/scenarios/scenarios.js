@@ -1,13 +1,22 @@
-import { generateHexMap } from '../world/map.js';
+// 📂 scenarios/scenarios.js
 
-function generateScenario(type, size) {
+import { generateHexMap } from '../world/map.js'; 
+
+const scenarioSettings = {
+    default: { size: 5 },
+    island: { size: 3 },
+    maze: { size: 3 }
+};
+
+function generateScenario(type) {
+    const size = scenarioSettings[type]?.size || 2;
     let map = generateHexMap(size);
 
     if (type === 'island') {
         map.forEach(row =>
             row.forEach(cell => {
                 const dist = Math.abs(cell.q) + Math.abs(cell.r) + Math.abs(cell.s);
-                if (dist > size * 1.5) cell.type = 'non-walkable';
+                if (dist > size * 1.5) cell.terrainType = 'Peak';
             })
         );
     }
@@ -15,7 +24,7 @@ function generateScenario(type, size) {
     if (type === 'maze') {
         map.forEach((row, ri) =>
             row.forEach((cell, ci) => {
-                if ((ri + ci) % 2 === 0) cell.type = 'non-walkable';
+                if ((ri + ci) % 2 === 0) cell.terrainType = 'Mount';
             })
         );
     }
@@ -26,7 +35,7 @@ function generateScenario(type, size) {
 // 📦 Начальные юниты для каждого сценария
 function getInitialUnitsForScenario(type, map = []) {
     const units = [];
-    const flat = map.flat().filter(c => c.type === 'walkable');
+    const flat = map.flat().filter(c => ["Surf", "Water", "Deep", "Land"].includes(c.terrainType));
 
     // Helper: случайный свободный гекс
     function getRandomFreeHex(taken = []) {
@@ -43,8 +52,8 @@ function getInitialUnitsForScenario(type, map = []) {
         if (!cell1) cell1 = getRandomFreeHex();
         if (!cell2 || cell2 === cell1) cell2 = getRandomFreeHex([cell1]);
 
-        units.push({ q: cell1.q, r: cell1.r, s: cell1.s, type: 'soldier', owner: 'player1' });
-        units.push({ q: cell2.q, r: cell2.r, s: cell2.s, type: 'archer', owner: 'player1' });
+        units.push({ q: cell1.q, r: cell1.r, s: cell1.s, type: 'WDD', owner: 'player1' });
+        units.push({ q: cell2.q, r: cell2.r, s: cell2.s, type: 'WCC', owner: 'player1' });
     }
 
     if (type === 'island' || type === 'maze') {
@@ -54,7 +63,7 @@ function getInitialUnitsForScenario(type, map = []) {
                 q: hex.q,
                 r: hex.r,
                 s: hex.s,
-                type: i === 0 ? 'soldier' : 'archer',
+                type: i === 0 ? 'WDD' : 'WCC',
                 owner: i === 0 ? 'player1' : 'player2'
             });
         }
@@ -63,4 +72,4 @@ function getInitialUnitsForScenario(type, map = []) {
     return units;
 }
 
-export { generateScenario, getInitialUnitsForScenario };
+export { generateScenario, getInitialUnitsForScenario, scenarioSettings };

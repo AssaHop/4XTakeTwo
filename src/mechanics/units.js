@@ -2,6 +2,7 @@
 import { renderUnits, highlightHexes } from '../ui/render.js';
 import { state } from '../core/state.js';
 import { updateEndTurnButton } from '../ui/events.js';
+import { ClassTemplates } from '../core/classTemplates.js';
 
 class Unit {
     constructor(q, r, s, type, owner, options = {}) {
@@ -12,19 +13,23 @@ class Unit {
         this.owner = owner;
         this.actions = 1;
         this.selected = false;
-      
+
         this.moveRange = options.moveRange || 1;
+        this.visionRange = options.visionRange || 3;
+        this.attackRange = options.attackRange || 1;
         this.attackDamage = options.attackDamage || 1;
+        this.weaponType = options.weaponType || null;
+
         this.hp = options.hp || 3;
         this.maxHp = options.maxHp || this.hp;
-      
+
         this.modules = options.modules || [];
-      
+
         // ✨ Применим поведенческие модули
         import('../core/applyModules.js').then(({ applyModules }) => {
-          applyModules(this);
+            applyModules(this);
         });
-      }
+    }
 
     moveTo(q, r, s) {
         if (this.actions <= 0) return false;
@@ -37,7 +42,7 @@ class Unit {
         }
 
         const targetCell = state.map.flat().find(c => c.q === q && c.r === r && c.s === s);
-        if (!targetCell || targetCell.type !== 'walkable') return false;
+        if (!targetCell || targetCell.terrainType === 'Peak') return false;
 
         this.q = q;
         this.r = r;
@@ -64,7 +69,7 @@ class Unit {
                 const s = this.s + ds;
 
                 const cell = state.map.flat().find(c => c.q === q && c.r === r && c.s === s);
-                if (cell && cell.type === 'walkable') {
+                if (cell && cell.terrainType !== 'Peak') {
                     hexes.push({ q, r, s });
                 }
             }
@@ -82,9 +87,15 @@ const units = state.units;
 function addUnit(q, r, s, type, owner) {
     const cell = state.map.flat().find(c => c.q === q && c.r === r && c.s === s);
     const unitOnCell = units.find(u => u.q === q && u.r === r && u.s === s);
-    if (!cell || cell.type !== 'walkable' || unitOnCell) return;
+    if (!cell || cell.terrainType === 'Peak' || unitOnCell) return;
 
-    const unit = new Unit(q, r, s, type, owner);
+    const template = ClassTemplates[type];
+    if (!template) {
+        console.warn(`⚠️ Unknown unit type: ${type}`);
+        return;
+    }
+
+    const unit = new Unit(q, r, s, type, owner, template);
     units.push(unit);
     renderUnits();
 }
@@ -92,6 +103,10 @@ function addUnit(q, r, s, type, owner) {
 function generateUnits(unitsList) {
     units.length = 0;
     for (const unit of unitsList) {
+        // 💥 Переопределение устаревших типов
+        if (unit.type === 'soldier') unit.type = 'WDD';
+        if (unit.type === 'archer') unit.type = 'WCC';
+
         addUnit(unit.q, unit.r, unit.s, unit.type, unit.owner);
     }
 }

@@ -3,16 +3,13 @@
 const HEX_RADIUS = 40;
 const squashFactor = 0.7;
 
-// 🔸 cube → pixel (позиционирование гексов на canvas)
 function cubeToPixel(q, r, s, offsetX = 0, offsetY = 0, hexOffsetX = 0, hexOffsetY = 0) {
     const size = HEX_RADIUS;
     const x = size * (Math.sqrt(3) * q + Math.sqrt(3) / 2 * r) + offsetX + hexOffsetX;
     const y = size * (3 / 2 * r * squashFactor) + offsetY + hexOffsetY;
-    // console.log(`📍 cubeToPixel - q: ${q}, r: ${r}, s: ${s} → x: ${x.toFixed(2)}, y: ${y.toFixed(2)}, offsetX: ${offsetX}, offsetY: ${offsetY}`);
     return { x, y };
 }
 
-// 🔸 pixel → cube (определение координат гекса из курсора)
 function pixelToCube(x, y, offsetX = 0, offsetY = 0, scale = 1) {
     const size = HEX_RADIUS * scale;
     const px = (x - offsetX) / size;
@@ -25,7 +22,6 @@ function pixelToCube(x, y, offsetX = 0, offsetY = 0, scale = 1) {
     return cubeRound({ q, r, s });
 }
 
-// 🔸 Округление координат куба до ближайшего гекса
 function cubeRound({ q, r, s }) {
     let rq = Math.round(q);
     let rr = Math.round(r);
@@ -42,7 +38,6 @@ function cubeRound({ q, r, s }) {
     return { q: rq, r: rr, s: rs };
 }
 
-// 🔸 Направления соседей для гекса
 const directions = [
     { dq: 1, dr: -1, ds: 0 },
     { dq: 1, dr: 0, ds: -1 },
@@ -60,35 +55,62 @@ function getNeighbors(q, r, s) {
     }));
 }
 
-// 🔸 Генерация карты
+// 🔸 Случайный terrainType (для тестов, потом можно заменить на генератор биомов)
+function randomTerrainType() {
+    const terrains = [
+        "Surf", "Water", "Water", "Deep", "Land", "Land", "Hill", "Mount", "Peak"
+    ];
+    return terrains[Math.floor(Math.random() * terrains.length)];
+}
+
+let mapTiles = [];
+
 function generateHexMap(size, offsetX = 0, offsetY = 0) {
     const map = [];
+    mapTiles = []; // сохраняем в глобальный список
     for (let q = -size; q <= size; q++) {
         const rowArray = [];
         for (let r = -size; r <= size; r++) {
             const s = -q - r;
             if (Math.abs(s) <= size) {
                 const { x, y } = cubeToPixel(q, r, s, offsetX, offsetY);
-                rowArray.push({
+                const terrainType = randomTerrainType();
+
+                const tile = {
                     q,
                     r,
                     s,
                     x,
                     y,
-                    type: Math.random() > 0.2 ? 'walkable' : 'non-walkable',
+                    terrainType,
+                    tags: [],
                     neighbors: getNeighbors(q, r, s)
-                });
+                };
+
+                // Пример: добавим current на часть воды
+                if ((terrainType === "Water" || terrainType === "Deep") && Math.random() < 0.3) {
+                    tile.tags.push("current");
+                    tile.currentDirection = "NE"; // временно
+                }
+
+                rowArray.push(tile);
+                mapTiles.push(tile);
             }
         }
         map.push(rowArray);
     }
-    console.log('🗺️ Map generated:', map);
+    console.log('🗺️ Map generated with terrainTypes:', map);
     return map;
 }
 
-// ✅ Экспорт
+// 🔍 Получить тайл по координатам
+function getTile(q, r, s) {
+    return mapTiles.find(t => t.q === q && t.r === r && t.s === s);
+}
+
 export {
     generateHexMap,
+    getTile,
     cubeToPixel,
     pixelToCube,
     cubeRound,

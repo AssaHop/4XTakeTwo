@@ -1,3 +1,5 @@
+// 📂 ui/render.js
+
 import { cubeToPixel, HEX_RADIUS, squashFactor } from '../world/map.js';
 import { state, mapOffsetX, mapOffsetY } from '../core/game.js';
 
@@ -34,7 +36,7 @@ function renderMap(newScale = state.scale ?? scale, offset = state.offset ?? { x
         row.forEach(cell => {
             const { x, y } = cubeToPixel(cell.q, cell.r, cell.s, 0, 0, hexOffset.x, hexOffset.y);
             const isHighlighted = state.highlightedHexes.some(hex => hex.q === cell.q && hex.r === cell.r && hex.s === cell.s);
-            drawHex(ctx, x, y, HEX_RADIUS, cell.type, isHighlighted);
+            drawHex(ctx, x, y, HEX_RADIUS, cell.terrainType, isHighlighted);
         });
     });
 
@@ -43,7 +45,20 @@ function renderMap(newScale = state.scale ?? scale, offset = state.offset ?? { x
     console.log('Map rendered');
 }
 
-function drawHex(ctx, x, y, radius, type, isHighlighted = false) {
+function getTerrainColor(terrainType) {
+    switch (terrainType) {
+        case 'Surf': return '#b3ecff';
+        case 'Water': return '#3399ff';
+        case 'Deep': return '#004080';
+        case 'Land': return '#66cc66';
+        case 'Hill': return '#99cc33';
+        case 'Mount': return '#888888';
+        case 'Peak': return '#444444';
+        default: return '#cccccc';
+    }
+}
+
+function drawHex(ctx, x, y, radius, terrainType, isHighlighted = false) {
     ctx.beginPath();
     for (let i = 0; i < 6; i++) {
         const angle = 2 * Math.PI / 6 * (i + 0.5);
@@ -56,7 +71,7 @@ function drawHex(ctx, x, y, radius, type, isHighlighted = false) {
         }
     }
     ctx.closePath();
-    ctx.fillStyle = isHighlighted ? '#ffff00' : (type === 'walkable' ? '#3090ff' : '#a42');
+    ctx.fillStyle = isHighlighted ? '#ffff00' : getTerrainColor(terrainType);
     ctx.fill();
     ctx.stroke();
 }

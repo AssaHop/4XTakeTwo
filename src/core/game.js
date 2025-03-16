@@ -25,6 +25,7 @@ function updateMapOffset() {
     mapOffsetY = canvas.height / 2;
     offset.x = mapOffsetX;
     offset.y = mapOffsetY;
+    state.offset = { ...offset }; // sync state.offset too
 }
 
 function showMenu() {
@@ -52,10 +53,9 @@ function initGame(size, scenarioName = 'default') {
 
     if (!unitsList || unitsList.length === 0) {
         console.warn('⚠️ No units defined for scenario, skipping unit generation.');
+    } else {
+        generateUnits(unitsList);
     }
-
-    generateUnits(unitsList);
-    console.log('🧍 Units after generate:', state.units);
 
     renderMap(scale, offset);
     renderUnits(scale, offset);
