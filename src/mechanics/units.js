@@ -1,8 +1,8 @@
-// 📂 mechanics/units.js
-import { renderUnits, highlightHexes } from '../ui/render.js';
+import { renderUnits, renderMap, highlightHexes } from '../ui/render.js'; // Добавляем импорт highlightHexes
 import { state } from '../core/state.js';
-import { updateEndTurnButton } from '../ui/events.js';
+import { updateEndTurnButton } from '../ui/uiControls.js';
 import { ClassTemplates } from '../core/classTemplates.js';
+import { hasLineOfSight } from '../mechanics/lineOfSight.js';
 
 class Unit {
     constructor(q, r, s, type, owner, options = {}) {
@@ -25,7 +25,16 @@ class Unit {
 
         this.modules = options.modules || [];
 
-        // ✨ Применим поведенческие модули
+        if (this.modules.includes('Air')) {
+            this.moveTerrain = ['Surf', 'Water', 'Deep', 'Land', 'Hill', 'Mount'];
+        } else if (this.modules.includes('Dual')) {
+            this.moveTerrain = ['Surf', 'Water', 'Land'];
+        } else if (this.modules.includes('Sail') || this.modules.includes('Navy')) {
+            this.moveTerrain = ['Water', 'Deep'];
+        } else {
+            this.moveTerrain = options.moveTerrain || ['Surf', 'Water', 'Deep'];
+        }
+
         import('../core/applyModules.js').then(({ applyModules }) => {
             applyModules(this);
         });
@@ -36,13 +45,10 @@ class Unit {
 
         const allowedHexes = this.getAvailableHexes();
         const isAllowed = allowedHexes.some(h => h.q === q && h.r === r && h.s === s);
-        if (!isAllowed) {
-            console.log("❌ Hex out of range for move.");
-            return false;
-        }
+        if (!isAllowed) return false;
 
         const targetCell = state.map.flat().find(c => c.q === q && c.r === r && c.s === s);
-        if (!targetCell || targetCell.terrainType === 'Peak') return false;
+        if (!targetCell || !this.moveTerrain.includes(targetCell.terrainType)) return false;
 
         this.q = q;
         this.r = r;
@@ -50,9 +56,10 @@ class Unit {
         this.actions -= 1;
         state.hasActedThisTurn = true;
 
-        import('../ui/events.js').then(({ updateEndTurnButton }) => {
-            updateEndTurnButton(true);
-        });
+        updateEndTurnButton(true);
+
+        renderMap(state.scale, state.offset); 
+        highlightHexes([]); // Сбрасываем подсветку доступных гексов
 
         return true;
     }
@@ -69,7 +76,7 @@ class Unit {
                 const s = this.s + ds;
 
                 const cell = state.map.flat().find(c => c.q === q && c.r === r && c.s === s);
-                if (cell && cell.terrainType !== 'Peak') {
+                if (cell && this.moveTerrain.includes(cell.terrainType)) {
                     hexes.push({ q, r, s });
                 }
             }
@@ -84,17 +91,32 @@ class Unit {
 
 const units = state.units;
 
+function getAttackableHexes(unit) {
+    const targets = [];
+    const range = unit.attackRange;
+
+    for (let dq = -range; dq <= range; dq++) {
+        for (let dr = Math.max(-range, -dq - range); dr <= Math.min(range, -dq + range); dr++) {
+            const ds = -dq - dr;
+            const q = unit.q + dq;
+            const r = unit.r + dr;
+            const s = unit.s + ds;
+
+            const target = state.units.find(u => u.q === q && u.r === r && u.s === s && u.owner !== unit.owner);
+            if (target && hasLineOfSight(unit, target, state.map, unit.weaponType)) {
+                targets.push({ q, r, s, isAttack: true });
+            }
+        }
+    }
+    return targets;
+}
+
 function addUnit(q, r, s, type, owner) {
     const cell = state.map.flat().find(c => c.q === q && c.r === r && c.s === s);
     const unitOnCell = units.find(u => u.q === q && u.r === r && u.s === s);
-    if (!cell || cell.terrainType === 'Peak' || unitOnCell) return;
+    if (!cell || !ClassTemplates[type] || unitOnCell) return;
 
     const template = ClassTemplates[type];
-    if (!template) {
-        console.warn(`⚠️ Unknown unit type: ${type}`);
-        return;
-    }
-
     const unit = new Unit(q, r, s, type, owner, template);
     units.push(unit);
     renderUnits();
@@ -103,10 +125,6 @@ function addUnit(q, r, s, type, owner) {
 function generateUnits(unitsList) {
     units.length = 0;
     for (const unit of unitsList) {
-        // 💥 Переопределение устаревших типов
-        if (unit.type === 'soldier') unit.type = 'WDD';
-        if (unit.type === 'archer') unit.type = 'WCC';
-
         addUnit(unit.q, unit.r, unit.s, unit.type, unit.owner);
     }
 }
@@ -115,7 +133,9 @@ function selectUnit(unit) {
     state.units.forEach(u => u.deselect());
     unit.select();
     state.selectedUnit = unit;
-    state.highlightedHexes = unit.getAvailableHexes();
+    const moveHexes = unit.getAvailableHexes();
+    const attackHexes = getAttackableHexes(unit);
+    state.highlightedHexes = [...moveHexes, ...attackHexes];
     highlightHexes(state.highlightedHexes);
     renderUnits();
 }

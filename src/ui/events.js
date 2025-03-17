@@ -1,143 +1,104 @@
-// 📂 ui/events.js — обработчики событий (FSM-расширенная версия)
-
-import { resetUnitsActions, selectUnit } from '../mechanics/units.js';
-import { renderUnits, renderMap, highlightHexes } from './render.js';
+import { selectUnit } from '../mechanics/units.js';
+import { pixelToCube, cubeRound } from '../world/map.js';
 import { state } from '../core/state.js';
-import { HEX_RADIUS, squashFactor } from '../world/map.js';
-import { performAttack, canAttack } from '../mechanics/combat.js';
-import { GameState, getState, transitionTo, is } from '../core/gameStateMachine.js';
+import { GameState, transitionTo } from '../core/gameStateMachine.js';
+import { setupEndTurnButton, updateEndTurnButton } from './uiControls.js';
+import { renderUnits, highlightHexes } from './render.js'; // Добавляем импорт highlightHexes
+
+const squashFactor = 0.7; // ⚠️ Хардкодим локально, чтобы не падало на импорт
 
 function setupEventListeners() {
-    console.log("🎯 Event listeners setup initialized");
-
-    const endTurnButton = document.getElementById('end-turn-button');
-    if (endTurnButton) {
-        endTurnButton.addEventListener('click', () => {
-            endTurn();
-        });
-    } else {
-        console.error("❌ Element with ID 'end-turn-button' not found");
-    }
-
     const canvas = document.getElementById('game-canvas');
     canvas.addEventListener('click', handleCanvasClick);
+    setupEndTurnButton(handleEndTurn);
+    console.log('🎯 Event listeners setup initialized');
+}
+
+function cubeEqualsWithEpsilon(a, b, epsilon = 0.1) {
+    return Math.abs(a.q - b.q) < epsilon &&
+           Math.abs(a.r - b.r) < epsilon &&
+           Math.abs(a.s - b.s) < epsilon;
 }
 
 function handleCanvasClick(event) {
-    const { x, y } = getCanvasCoordinates(event);
-    const clickedHex = pixelToHex(x, y);
-    console.log(`🖱️ Canvas clicked at: (${x}, ${y}) → cube(${clickedHex.q},${clickedHex.r},${clickedHex.s})`);
+    const rect = event.target.getBoundingClientRect();
+    const x = (event.clientX - rect.left - state.offset.x) / state.scale;
+    const y = (event.clientY - rect.top - state.offset.y) / state.scale / squashFactor;
 
-    const clickedUnit = state.units.find(u => u.q === clickedHex.q && u.r === clickedHex.r && u.s === clickedHex.s);
-    const selectedUnit = state.selectedUnit;
+    const clickedCube = pixelToCube(x, y);
+    console.log('🧭 Raw cube from pixelToCube:', clickedCube);
 
-    if (is(GameState.ENEMY_TURN)) return;
+    const rounded = cubeRound(clickedCube);
+    console.log(`🧮 cubeRound: from (${clickedCube.q.toFixed(3)}, ${clickedCube.r.toFixed(3)}, ${clickedCube.s.toFixed(3)}) → rounded (${rounded.q}, ${rounded.r}, ${rounded.s})`);
 
-    if (selectedUnit && clickedUnit && clickedUnit.owner !== selectedUnit.owner) {
-        if (canAttack(selectedUnit, clickedUnit)) {
-            transitionTo(GameState.UNIT_ATTACKING);
-            performAttack(selectedUnit, clickedUnit);
-            resetSelection();
-            transitionTo(GameState.IDLE);
-            renderMap(state.scale, state.offset);
-            renderUnits(state.scale, state.offset);
-            return;
-        } else {
-            console.log("❌ Attack not allowed.");
-            return;
-        }
-    }
+    const { q, r, s } = rounded;
+    console.log(`🎯 Final clicked cube: (${q}, ${r}, ${s})`);
 
-    if (clickedUnit && clickedUnit.owner === 'player1' && clickedUnit.actions > 0) {
+    state.units.forEach(u => {
+        const match = cubeEqualsWithEpsilon(u, { q, r, s });
+        const dq = Math.abs(u.q - q);
+        const dr = Math.abs(u.r - r);
+        const ds = Math.abs(u.s - s);
+        console.log(`📋 Compare to unit at (${u.q},${u.r},${u.s}) → match=${match}, dq=${dq}, dr=${dr}, ds=${ds}`);
+    });
+
+    const clickedUnit = state.units.find(unit => cubeEqualsWithEpsilon(unit, { q, r, s }));
+
+    if (clickedUnit) {
         console.log(`✅ Unit selected at: (${clickedUnit.q}, ${clickedUnit.r}, ${clickedUnit.s})`);
-        transitionTo(GameState.UNIT_SELECTED);
+        console.log("🟡 Move range hexes:");
+        const moveHexes = clickedUnit.getAvailableHexes();
+        moveHexes.forEach(h => {
+            console.log(` - (${h.q}, ${h.r}, ${h.s})`);
+        });
         selectUnit(clickedUnit);
+        transitionTo(GameState.UNIT_SELECTED);
         return;
     }
 
-    if (selectedUnit && !clickedUnit) {
-        const moved = selectedUnit.moveTo(clickedHex.q, clickedHex.r, clickedHex.s);
-        if (moved) {
-            if (selectedUnit.actions <= 0) resetSelection();
-            transitionTo(GameState.UNIT_MOVING);
-            transitionTo(GameState.IDLE);
-            renderMap(state.scale, state.offset);
-            renderUnits(state.scale, state.offset);
+    const selected = state.selectedUnit;
+    if (selected && selected.actions > 0) {
+        const available = selected.getAvailableHexes();
+        console.log('📌 Available move hexes:', available);
+
+        available.forEach(h => {
+            const match = cubeEqualsWithEpsilon(h, { q, r, s });
+            console.log(`   ➕ Compare to moveHex (${h.q},${h.r},${h.s}) → match=${match}`);
+        });
+
+        const inRange = available.find(h => cubeEqualsWithEpsilon(h, { q, r, s }));
+        console.log(`📏 Clicked hex in moveRange: ${!!inRange}`);
+
+        if (inRange) {
+            const success = selected.moveTo(q, r, s);
+            console.log(`📤 Attempting moveTo(${q}, ${r}, ${s}) → success=${success}`);
+            console.log(`📍 Unit position after move: (${selected.q}, ${selected.r}, ${selected.s})`);
+
+            const newAvailable = selected.getAvailableHexes();
+            console.log('🔍 Recheck move range after move:');
+            newAvailable.forEach(h => console.log(` - (${h.q}, ${h.r}, ${h.s})`));
+
+            if (success) {
+                console.log(`🚶 Unit moved to: (${q}, ${r}, ${s})`);
+                highlightHexes([]); // Сбрасываем подсветку доступных гексов
+                renderUnits(); // 🔥 <-- ПЕРЕРИСОВКА ЮНИТОВ ПОСЛЕ MOVE
+                transitionTo(GameState.UNIT_MOVING);
+                setTimeout(() => transitionTo(GameState.IDLE), 100);
+                return;
+            }
         }
     }
+
+    console.log('❌ No unit at clicked hex or move invalid.');
 }
 
-function resetSelection() {
-    if (state.selectedUnit) {
-        state.selectedUnit.deselect?.();
-    }
-    state.selectedUnit = null;
-    state.highlightedHexes = [];
-}
-
-function getCanvasCoordinates(event) {
-    const canvas = document.getElementById('game-canvas');
-    const rect = canvas.getBoundingClientRect();
-    return {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top
-    };
-}
-
-function pixelToHex(x, y) {
-    const size = HEX_RADIUS;
-    const scale = state.scale ?? 1;
-    const offsetX = state.offset?.x ?? 0;
-    const offsetY = state.offset?.y ?? 0;
-
-    const adjustedX = (x - offsetX) / scale;
-    const adjustedY = (y - offsetY) / scale;
-
-    const q = (Math.sqrt(3) / 3 * adjustedX - 1 / 3 * adjustedY) / size;
-    const r = (2 / 3 * adjustedY) / (size * squashFactor);
-    const s = -q - r;
-
-    return cubeRound({ q, r, s });
-}
-
-function cubeRound(cube) {
-    let q = Math.round(cube.q);
-    let r = Math.round(cube.r);
-    let s = Math.round(cube.s);
-
-    const q_diff = Math.abs(q - cube.q);
-    const r_diff = Math.abs(r - cube.r);
-    const s_diff = Math.abs(s - cube.s);
-
-    if (q_diff > r_diff && q_diff > s_diff) {
-        q = -r - s;
-    } else if (r_diff > s_diff) {
-        r = -q - s;
-    } else {
-        s = -q - r;
-    }
-
-    return { q, r, s };
-}
-
-function endTurn() {
-    transitionTo(GameState.ENEMY_TURN);
-    resetUnitsActions();
-    resetSelection();
-    renderMap(state.scale, state.offset);
-    renderUnits(state.scale, state.offset);
+function handleEndTurn() {
+    console.log('🔚 End turn clicked');
+    state.units.forEach(unit => unit.resetActions());
+    state.hasActedThisTurn = false;
     updateEndTurnButton(false);
-    transitionTo(GameState.IDLE);
+    transitionTo(GameState.ENEMY_TURN);
+    setTimeout(() => transitionTo(GameState.IDLE), 200);
 }
 
-function updateEndTurnButton(enabled) {
-    const button = document.getElementById('end-turn-button');
-    if (button) {
-        button.disabled = !enabled;
-        console.log(`🔘 End turn button ${enabled ? 'enabled' : 'disabled'}`);
-    } else {
-        console.error("❌ Element with ID 'end-turn-button' not found");
-    }
-}
-
-export { setupEventListeners, updateEndTurnButton, endTurn };
+export { setupEventListeners };

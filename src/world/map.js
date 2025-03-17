@@ -1,19 +1,18 @@
 // 📂 world/map.js
 
 const HEX_RADIUS = 40;
-const squashFactor = 0.7;
 
 function cubeToPixel(q, r, s, offsetX = 0, offsetY = 0, hexOffsetX = 0, hexOffsetY = 0) {
     const size = HEX_RADIUS;
     const x = size * (Math.sqrt(3) * q + Math.sqrt(3) / 2 * r) + offsetX + hexOffsetX;
-    const y = size * (3 / 2 * r * squashFactor) + offsetY + hexOffsetY;
+    const y = size * (3 / 2 * r) + offsetY + hexOffsetY;
     return { x, y };
 }
 
 function pixelToCube(x, y, offsetX = 0, offsetY = 0, scale = 1) {
     const size = HEX_RADIUS * scale;
     const px = (x - offsetX) / size;
-    const py = (y - offsetY) / size / squashFactor;
+    const py = (y - offsetY) / size;
 
     const q = (Math.sqrt(3) / 3 * px - 1 / 3 * py);
     const r = (2 / 3 * py);
@@ -55,11 +54,8 @@ function getNeighbors(q, r, s) {
     }));
 }
 
-// 🔸 Случайный terrainType (для тестов, потом можно заменить на генератор биомов)
 function randomTerrainType() {
-    const terrains = [
-        "Surf", "Water", "Water", "Deep", "Land", "Land", "Hill", "Mount", "Peak"
-    ];
+    const terrains = ["Surf", "Water", "Water", "Deep", "Land", "Land", "Hill", "Mount", "Peak"];
     return terrains[Math.floor(Math.random() * terrains.length)];
 }
 
@@ -67,7 +63,7 @@ let mapTiles = [];
 
 function generateHexMap(size, offsetX = 0, offsetY = 0) {
     const map = [];
-    mapTiles = []; // сохраняем в глобальный список
+    mapTiles = [];
     for (let q = -size; q <= size; q++) {
         const rowArray = [];
         for (let r = -size; r <= size; r++) {
@@ -77,20 +73,14 @@ function generateHexMap(size, offsetX = 0, offsetY = 0) {
                 const terrainType = randomTerrainType();
 
                 const tile = {
-                    q,
-                    r,
-                    s,
-                    x,
-                    y,
-                    terrainType,
+                    q, r, s, x, y, terrainType,
                     tags: [],
                     neighbors: getNeighbors(q, r, s)
                 };
 
-                // Пример: добавим current на часть воды
                 if ((terrainType === "Water" || terrainType === "Deep") && Math.random() < 0.3) {
                     tile.tags.push("current");
-                    tile.currentDirection = "NE"; // временно
+                    tile.currentDirection = "NE";
                 }
 
                 rowArray.push(tile);
@@ -99,11 +89,9 @@ function generateHexMap(size, offsetX = 0, offsetY = 0) {
         }
         map.push(rowArray);
     }
-    console.log('🗺️ Map generated with terrainTypes:', map);
     return map;
 }
 
-// 🔍 Получить тайл по координатам
 function getTile(q, r, s) {
     return mapTiles.find(t => t.q === q && t.r === r && t.s === s);
 }
@@ -115,6 +103,5 @@ export {
     pixelToCube,
     cubeRound,
     getNeighbors,
-    HEX_RADIUS,
-    squashFactor
+    HEX_RADIUS
 };

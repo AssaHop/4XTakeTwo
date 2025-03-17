@@ -3,7 +3,7 @@
 import { generateHexMap } from '../world/map.js'; 
 
 const scenarioSettings = {
-    default: { size: 5 },
+    default: { size: 15 },
     island: { size: 3 },
     maze: { size: 3 }
 };
