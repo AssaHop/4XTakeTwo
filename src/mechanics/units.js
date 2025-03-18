@@ -1,4 +1,6 @@
-import { renderUnits, renderMap, highlightHexes } from '../ui/render.js'; // Добавляем импорт highlightHexes
+// 📂 src/mechanics/units.js
+
+import { renderUnits, renderMap, highlightHexes } from '../ui/render.js';
 import { state } from '../core/state.js';
 import { updateEndTurnButton } from '../ui/uiControls.js';
 import { ClassTemplates } from '../core/classTemplates.js';
@@ -25,16 +27,18 @@ class Unit {
 
         this.modules = options.modules || [];
 
+        // Настройка типов передвижения
         if (this.modules.includes('Air')) {
-            this.moveTerrain = ['Surf', 'Water', 'Deep', 'Land', 'Hill', 'Mount'];
+            this.moveTerrain = ['surf', 'water', 'deep', 'land', 'hill', 'mount'];
         } else if (this.modules.includes('Dual')) {
-            this.moveTerrain = ['Surf', 'Water', 'Land'];
+            this.moveTerrain = ['surf', 'land', 'hill'];
         } else if (this.modules.includes('Sail') || this.modules.includes('Navy')) {
-            this.moveTerrain = ['Water', 'Deep'];
+            this.moveTerrain = ['water', 'deep'];
         } else {
-            this.moveTerrain = options.moveTerrain || ['Surf', 'Water', 'Deep'];
+            this.moveTerrain = options.moveTerrain || ['surf', 'land', 'hill'];
         }
 
+        // Применение модулей поведения
         import('../core/applyModules.js').then(({ applyModules }) => {
             applyModules(this);
         });
@@ -58,8 +62,8 @@ class Unit {
 
         updateEndTurnButton(true);
 
-        renderMap(state.scale, state.offset); 
-        highlightHexes([]); // Сбрасываем подсветку доступных гексов
+        renderMap(state.scale, state.offset);
+        highlightHexes([]);
 
         return true;
     }
@@ -100,7 +104,7 @@ function getAttackableHexes(unit) {
             const ds = -dq - dr;
             const q = unit.q + dq;
             const r = unit.r + dr;
-            const s = unit.s + ds;
+            const s = -q - r;
 
             const target = state.units.find(u => u.q === q && u.r === r && u.s === s && u.owner !== unit.owner);
             if (target && hasLineOfSight(unit, target, state.map, unit.weaponType)) {
@@ -114,11 +118,24 @@ function getAttackableHexes(unit) {
 function addUnit(q, r, s, type, owner) {
     const cell = state.map.flat().find(c => c.q === q && c.r === r && c.s === s);
     const unitOnCell = units.find(u => u.q === q && u.r === r && u.s === s);
-    if (!cell || !ClassTemplates[type] || unitOnCell) return;
+
+    if (!cell) {
+        console.warn(`⚠️ addUnit: cell not found at (${q}, ${r}, ${s})`);
+        return;
+    }
+    if (!ClassTemplates[type]) {
+        console.warn(`⚠️ addUnit: unknown ClassTemplate for type "${type}"`);
+        return;
+    }
+    if (unitOnCell) {
+        console.warn(`⚠️ addUnit: unit already exists at (${q}, ${r}, ${s})`);
+        return;
+    }
 
     const template = ClassTemplates[type];
     const unit = new Unit(q, r, s, type, owner, template);
     units.push(unit);
+    console.log(`✅ Unit ADDED: ${type} at (${q}, ${r}, ${s})`);
     renderUnits();
 }
 

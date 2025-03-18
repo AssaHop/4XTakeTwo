@@ -2,9 +2,9 @@
 import { getHexLine } from './hexUtils.js';
 
 const blockingTerrains = {
-  Main: ["Peak"],
-  Small: ["Mount", "Peak"],
-  Torp: ["Land", "Hill", "Mount", "Peak"]
+  Main: ["peak"],
+  Small: ["mount", "peak"],
+  Torp: ["land", "hill", "mount", "peak"]
 };
 
 export function hasLineOfSight(attacker, target, map, weaponType = "Main") {
