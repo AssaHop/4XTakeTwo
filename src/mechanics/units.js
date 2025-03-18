@@ -16,32 +16,55 @@ class Unit {
         this.actions = 1;
         this.selected = false;
 
-        this.moveRange = options.moveRange || 1;
-        this.visionRange = options.visionRange || 3;
-        this.attackRange = options.attackRange || 1;
-        this.attackDamage = options.attackDamage || 1;
-        this.weaponType = options.weaponType || null;
+        this.moRange = options.moRange || 1;
+        this.viRange = options.viRange || 3;
+        this.atRange = options.atRange || 1;
+        this.atDamage = options.atDamage || 1;
+        this.weType = options.weType || null;
 
         this.hp = options.hp || 3;
-        this.maxHp = options.maxHp || this.hp;
+        this.maxHp = options.hp || this.hp;
 
         this.modules = options.modules || [];
+        this.recalculateMobility();
 
-        // Настройка типов передвижения
-        if (this.modules.includes('Air')) {
-            this.moveTerrain = ['surf', 'water', 'deep', 'land', 'hill', 'mount'];
-        } else if (this.modules.includes('Dual')) {
-            this.moveTerrain = ['surf', 'land', 'hill'];
-        } else if (this.modules.includes('Sail') || this.modules.includes('Navy')) {
-            this.moveTerrain = ['water', 'deep'];
-        } else {
-            this.moveTerrain = options.moveTerrain || ['surf', 'land', 'hill'];
-        }
-
-        // Применение модулей поведения
         import('../core/applyModules.js').then(({ applyModules }) => {
             applyModules(this);
         });
+    }
+
+    recalculateMobility() {
+        if (this.modules.includes('Air')) {
+            this.moveTerrain = ['surf', 'water', 'deep', 'land', 'hill', 'mount'];
+        } else if (this.modules.includes('Dual')) {
+            this.moveTerrain = ['surf', 'land'];
+        } else if (this.modules.includes('Sail')) {
+            this.moveTerrain = ['surf', 'water', 'deep'];
+            this.moRange = Math.max(1, this.moRange - 1); // penalty
+        } else if (this.modules.includes('Navy')) {
+            this.moveTerrain = ['water', 'deep'];
+            this.moRange += 1; // bonus
+        } else {
+            this.moveTerrain = ['surf', 'land', 'hill'];
+        }
+    }
+
+    addModule(module) {
+        if (!this.modules.includes(module)) {
+            this.modules.push(module);
+            this.recalculateMobility();
+
+            if (module === 'Navy') {
+                this.atRange += 1;
+                this.weType = this.weType || 'Main';
+            }
+            if (module === 'AdvancedGunner') {
+                this.atDamage += 1;
+            }
+            if (module === 'EnhancedVision') {
+                this.viRange += 1;
+            }
+        }
     }
 
     moveTo(q, r, s) {
@@ -69,7 +92,7 @@ class Unit {
     }
 
     getAvailableHexes() {
-        const range = this.moveRange;
+        const range = this.moRange;
         const hexes = [];
 
         for (let dq = -range; dq <= range; dq++) {
@@ -88,6 +111,23 @@ class Unit {
         return hexes;
     }
 
+    getAvailableHexesRaw() {
+        const range = this.moRange;
+        const hexes = [];
+
+        for (let dq = -range; dq <= range; dq++) {
+            for (let dr = Math.max(-range, -dq - range); dr <= Math.min(range, -dq + range); dr++) {
+                const ds = -dq - dr;
+                const q = this.q + dq;
+                const r = this.r + dr;
+                const s = this.s + ds;
+
+                hexes.push({ q, r, s });
+            }
+        }
+        return hexes;
+    }
+
     select() { this.selected = true; }
     deselect() { this.selected = false; }
     resetActions() { this.actions = 1; }
@@ -97,7 +137,7 @@ const units = state.units;
 
 function getAttackableHexes(unit) {
     const targets = [];
-    const range = unit.attackRange;
+    const range = unit.atRange;
 
     for (let dq = -range; dq <= range; dq++) {
         for (let dr = Math.max(-range, -dq - range); dr <= Math.min(range, -dq + range); dr++) {
@@ -107,7 +147,7 @@ function getAttackableHexes(unit) {
             const s = -q - r;
 
             const target = state.units.find(u => u.q === q && u.r === r && u.s === s && u.owner !== unit.owner);
-            if (target && hasLineOfSight(unit, target, state.map, unit.weaponType)) {
+            if (target && hasLineOfSight(unit, target, state.map, unit.weType)) {
                 targets.push({ q, r, s, isAttack: true });
             }
         }
