@@ -35,6 +35,6 @@ export function applySpawnRules(tile, mapTiles, rules) {
 
   // 👇 Применяем fallback, если правило не прошло
   if (!conditionMet) {
-    tile.terrainType = rule.fallback || 'surf';
+    tile.terrainType = rule.fallback || 'water';
   }
 }

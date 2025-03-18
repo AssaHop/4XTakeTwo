@@ -49,7 +49,7 @@ function getTerrainColor(terrainType) {
         case 'land': return '#51ad42';
         case 'hill': return '#a2bb60';
         case 'mount': return '#9d5a36';
-        case 'peak': return '#bddef4';
+        case 'peak': return '#fddef4';
         default: return '#cccccc';
     }
 }
