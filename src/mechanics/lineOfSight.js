@@ -7,9 +7,9 @@ const blockingTerrains = {
   Torp: ["land", "hill", "mount", "peak"]
 };
 
-export function hasLineOfSight(attacker, target, map, weaponType = "Main") {
+export function hasLineOfSight(attacker, target, map, weType = "Main") {
   const line = getHexLine(attacker, target);
-  const blocked = blockingTerrains[weaponType] || [];
+  const blocked = blockingTerrains[weType] || [];
 
   for (let i = 1; i < line.length - 1; i++) {
     const hex = line[i];

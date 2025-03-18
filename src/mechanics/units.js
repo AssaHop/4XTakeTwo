@@ -40,10 +40,10 @@ class Unit {
             this.moveTerrain = ['surf', 'land'];
         } else if (this.modules.includes('Sail')) {
             this.moveTerrain = ['surf', 'water', 'deep'];
-            this.moRange = Math.max(1, this.moRange - 1); // penalty
+            this.moRange = Math.max(1, this.moRange - 1);
         } else if (this.modules.includes('Navy')) {
             this.moveTerrain = ['water', 'deep'];
-            this.moRange += 1; // bonus
+            this.moRange += 1;
         } else {
             this.moveTerrain = ['surf', 'land', 'hill'];
         }
@@ -92,23 +92,7 @@ class Unit {
     }
 
     getAvailableHexes() {
-        const range = this.moRange;
-        const hexes = [];
-
-        for (let dq = -range; dq <= range; dq++) {
-            for (let dr = Math.max(-range, -dq - range); dr <= Math.min(range, -dq + range); dr++) {
-                const ds = -dq - dr;
-                const q = this.q + dq;
-                const r = this.r + dr;
-                const s = this.s + ds;
-
-                const cell = state.map.flat().find(c => c.q === q && c.r === r && c.s === s);
-                if (cell && this.moveTerrain.includes(cell.terrainType)) {
-                    hexes.push({ q, r, s });
-                }
-            }
-        }
-        return hexes;
+        return findReachableTiles(this, state.map, this.moRange);
     }
 
     getAvailableHexesRaw() {
@@ -134,6 +118,46 @@ class Unit {
 }
 
 const units = state.units;
+
+function findReachableTiles(unit, map, range) {
+    const visited = new Set();
+    const reachable = [];
+    const frontier = [{ q: unit.q, r: unit.r, s: unit.s, cost: 0 }];
+    const key = (q, r, s) => `${q},${r},${s}`;
+
+    while (frontier.length > 0) {
+        const current = frontier.shift();
+        const id = key(current.q, current.r, current.s);
+        if (visited.has(id)) continue;
+        visited.add(id);
+
+        const cell = map.flat().find(c => c.q === current.q && c.r === current.r && c.s === current.s);
+        if (!cell || !unit.moveTerrain.includes(cell.terrainType)) continue;
+        if (current.cost > range) continue;
+
+        reachable.push({ q: current.q, r: current.r, s: current.s });
+
+        const directions = [
+            { dq: 1, dr: -1, ds: 0 },
+            { dq: 1, dr: 0, ds: -1 },
+            { dq: 0, dr: 1, ds: -1 },
+            { dq: -1, dr: 1, ds: 0 },
+            { dq: -1, dr: 0, ds: 1 },
+            { dq: 0, dr: -1, ds: 1 },
+        ];
+
+        for (const dir of directions) {
+            frontier.push({
+                q: current.q + dir.dq,
+                r: current.r + dir.dr,
+                s: current.s + dir.ds,
+                cost: current.cost + 1
+            });
+        }
+    }
+
+    return reachable;
+}
 
 function getAttackableHexes(unit) {
     const targets = [];
