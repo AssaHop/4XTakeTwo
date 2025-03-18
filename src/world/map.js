@@ -1,4 +1,6 @@
-// 📂 world/map.js
+import { createTerrainPool, shuffleArray } from '../utils/terrainPool.js';
+import { applySpawnRules } from '../utils/applySpawnRules.js';
+import { mapRules } from '../utils/mapRules.js';
 
 const HEX_RADIUS = 40;
 
@@ -54,23 +56,25 @@ function getNeighbors(q, r, s) {
     }));
 }
 
-function randomTerrainType() {
-    const terrains = ["Surf", "Water", "Water", "Deep", "Land", "Land", "Hill", "Mount", "Peak"];
-    return terrains[Math.floor(Math.random() * terrains.length)];
-}
-
 let mapTiles = [];
 
-function generateHexMap(size, offsetX = 0, offsetY = 0) {
+function generateHexMap(size, offsetX = 0, offsetY = 0, customRules = null) {
+    const rules = customRules || mapRules;
+    const totalHexes = getHexCount(size);
+    const terrainPool = createTerrainPool(totalHexes, rules.terrainDistribution);
+    shuffleArray(terrainPool);
+
     const map = [];
     mapTiles = [];
+    let poolIndex = 0;
+
     for (let q = -size; q <= size; q++) {
         const rowArray = [];
         for (let r = -size; r <= size; r++) {
             const s = -q - r;
             if (Math.abs(s) <= size) {
                 const { x, y } = cubeToPixel(q, r, s, offsetX, offsetY);
-                const terrainType = randomTerrainType();
+                let terrainType = terrainPool[poolIndex++] || 'surf';
 
                 const tile = {
                     q, r, s, x, y, terrainType,
@@ -78,22 +82,31 @@ function generateHexMap(size, offsetX = 0, offsetY = 0) {
                     neighbors: getNeighbors(q, r, s)
                 };
 
-                if ((terrainType === "Water" || terrainType === "Deep") && Math.random() < 0.3) {
-                    tile.tags.push("current");
-                    tile.currentDirection = "NE";
-                }
-
-                rowArray.push(tile);
                 mapTiles.push(tile);
+                rowArray.push(tile);
             }
         }
         map.push(rowArray);
     }
+
+    mapTiles.forEach(tile => applySpawnRules(tile, mapTiles, rules));
+
     return map;
 }
 
 function getTile(q, r, s) {
     return mapTiles.find(t => t.q === q && t.r === r && t.s === s);
+}
+
+function getHexCount(size) {
+    let count = 0;
+    for (let q = -size; q <= size; q++) {
+        for (let r = -size; r <= size; r++) {
+            let s = -q - r;
+            if (Math.abs(s) <= size) count++;
+        }
+    }
+    return count;
 }
 
 export {
