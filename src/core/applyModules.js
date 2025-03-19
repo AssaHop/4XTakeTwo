@@ -1,11 +1,11 @@
-// 📂 core/applyModules.js — применение модулей к юниту
+// 📂 core/applyModules.js — обновлённая версия с новым реестром
 
-import { ModuleDefinitions } from './modulesRegistry.js';
+import { ModuleDefinitions } from './modules/allModulesRegistry.js';
 
 export function applyModules(unit) {
-  if (!unit.modules || unit.modules.length === 0) return;
+  if (!unit.modules || !Array.isArray(unit.modules)) return;
 
-  unit.modules.forEach(mod => {
+  unit.modules.forEach((mod) => {
     const definition = ModuleDefinitions[mod];
     if (definition && typeof definition.effect === 'function') {
       definition.effect(unit);
