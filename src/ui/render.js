@@ -1,8 +1,7 @@
-// 📂 ui/render.js
+// 📂 src/ui/render.js
 
 import { cubeToPixel, HEX_RADIUS } from '../world/map.js';
-import { state, mapOffsetX, mapOffsetY } from '../core/game.js';
-import { updateEndTurnButton } from './uiControls.js';
+import { state } from '../core/state.js';
 
 const squashFactor = 0.7;
 
@@ -43,14 +42,11 @@ function renderMap(newScale = state.scale ?? scale, offset = state.offset ?? { x
 
   ctx.restore();
 
-  // Draw units second
   renderUnits(scale, offset, hexOffset);
-
-  // Draw attack highlights last, on top of units
   renderAttackHighlights(hexOffset);
 
   console.log("📍 HighlightedHexes:", state.highlightedHexes);
-  console.log("[renderMap] ATTACK ONLY HEXES:", state.highlightedHexes.filter(h => h.isAttack));
+  console.log("[renderMap] ATTACK ONLY HEXES:", state.attackHexes);
 }
 
 function renderAttackHighlights(hexOffset = { x: 0, y: 0 }) {
@@ -62,7 +58,7 @@ function renderAttackHighlights(hexOffset = { x: 0, y: 0 }) {
   ctx.scale(state.scale, state.scale);
   ctx.scale(1, squashFactor);
 
-  state.highlightedHexes
+  (state.attackHexes || [])
     .filter(hex => hex.isAttack)
     .forEach(hex => {
       const { x, y } = cubeToPixel(hex.q, hex.r, hex.s, 0, 0, hexOffset.x, hexOffset.y);
@@ -194,8 +190,19 @@ function highlightHexes(hexes) {
   renderMap(state.scale, state.offset);
 }
 
+function highlightAttackHexes(hexes) {
+  state.attackHexes = hexes.map(h => ({ ...h, isAttack: true }));
+  renderMap(state.scale, state.offset);
+}
+
 function cubeEquals(a, b) {
   return a.q === b.q && a.r === b.r && a.s === b.s;
 }
 
-export { renderMap, renderUnits, highlightHexes, cubeEquals };
+export {
+  renderMap,
+  renderUnits,
+  highlightHexes,
+  highlightAttackHexes,
+  cubeEquals
+};

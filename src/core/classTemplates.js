@@ -1,8 +1,8 @@
 // 📂 core/classTemplates.js
 
 const ClassTemplates = {
-  WDD: { hp: 3, moRange: 3, viRange: 6, atRange: 3, weType: ['Small','Torp'], spawnTerrain: ['surf', 'water', 'deep'], modules: ['Sail'] },
-  WCC: { hp: 4, moRange: 2, viRange: 6, atRange: 3, weType: 'Small', spawnTerrain: ['surf', 'water', 'deep'], modules: ['Navy'] },
+  WDD: { hp: 3, moRange: 3, viRange: 6, atRange: 4, weType: ['Small','Torp'], spawnTerrain: ['surf', 'water', 'deep'], modules: ['Sail'] },
+  WCC: { hp: 4, moRange: 3, viRange: 6, atRange: 3, weType: 'Small', spawnTerrain: ['surf', 'water', 'deep'], modules: ['Navy','Charge'] },
   WBB: { hp: 5, moRange: 2, viRange: 6, atRange: 3, weType: 'Main', spawnTerrain: ['surf', 'water', 'deep'], modules: ['Navy'] },
   WSB: { hp: 3, moRange: 3, viRange: 6, atRange: 3, weType: 'Torp', spawnTerrain: ['surf', 'water', 'deep'], modules: ['Sail'] },
   WCA: { hp: 4, moRange: 2, viRange: 6, atRange: 3, weType: 'Small', spawnTerrain: ['surf', 'water', 'deep'], modules: ['Sail'] },

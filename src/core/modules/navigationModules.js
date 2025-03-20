@@ -15,7 +15,7 @@ export const NavigationModules = {
     tags: ['navigation'],
     description: 'Перемещение по water и deep с уменьшением дальности хода.',
     effect: (unit) => {
-      unit.moveTerrain = ['water', 'deep'];
+      unit.moveTerrain = ['surf', 'water'];
       unit.moRange = Math.max(1, unit.moRange - 1);
     }
   },

@@ -4,8 +4,13 @@ import { renderUnits, renderMap, highlightHexes } from '../ui/render.js';
 import { state } from '../core/state.js';
 import { updateEndTurnButton } from '../ui/uiControls.js';
 import { ClassTemplates } from '../core/classTemplates.js';
-import { hasLineOfSight } from '../mechanics/lineOfSight.js';
+import { hasLineOfSight } from './lineOfSight.js';
 import { applyModules } from '../core/applyModules.js';
+import { setupActionFlags } from '../core/unitFlags.js';
+import { techTree } from '../core/techTree.js';
+import { ModuleDefinitions } from '../core/modules/allModulesRegistry.js';
+import { handlePostMovePhase } from '../core/gameStateMachine.js';
+import { highlightUnitContext } from '../ui/highlightManager.js';
 
 class Unit {
   constructor(q, r, s, type, owner, options = {}) {
@@ -19,7 +24,6 @@ class Unit {
 
     this.hp = options.hp || 3;
     this.maxHp = options.hp || this.hp;
-
     this.moRange = options.moRange || 1;
     this.viRange = options.viRange || 3;
     this.atRange = options.atRange || 1;
@@ -27,8 +31,34 @@ class Unit {
     this.weType = options.weType || null;
     this.modules = options.modules || [];
 
+    this.pendingChargeAttack = false;
+
     this.recalculateMobility();
     applyModules(this);
+    setupActionFlags(this);
+  }
+
+  hasModule(modName) {
+    return Array.isArray(this.modules) && this.modules.includes(modName);
+  }
+
+  upgradeWithModule(modName) {
+    if (!this.hasModule(modName)) {
+      this.modules.push(modName);
+      applyModules(this);
+      setupActionFlags(this);
+    }
+  }
+
+  upgradeWithAvailableTech() {
+    const available = Object.values(ModuleDefinitions).filter(
+      mod => mod.requiresTech && techTree.isUnlocked(mod.requiresTech)
+    );
+    for (let mod of available) {
+      if (!this.hasModule(mod.name)) {
+        this.upgradeWithModule(mod.name);
+      }
+    }
   }
 
   recalculateMobility() {
@@ -49,21 +79,37 @@ class Unit {
 
   moveTo(q, r, s) {
     if (this.actions <= 0) return false;
-
+  
+    if (this.moveUsed && !this.hasModule('Flee')) {
+      console.warn('[Move] Already moved once');
+      return false;
+    }
+  
     const allowed = this.getAvailableHexes();
     const allowedTarget = allowed.find(h => h.q === q && h.r === r && h.s === s);
     if (!allowedTarget) return false;
-
+  
     this.q = q;
     this.r = r;
     this.s = s;
     this.actions -= 1;
-    state.hasActedThisTurn = true;
-    updateEndTurnButton(true);
+    this.moveUsed = true;
+  
+    // ✅ CHARGE срабатывает сразу после Move
+    if (
+      this.hasModule('Charge') &&
+      !this.chargeBonusGiven
+    ) {
+      console.log(`⚡ [Charge Bonus] +1 Action after Move`);
+      this.actions += 1;
+      this.chargeBonusGiven = true;
+    }
+  
     renderMap(state.scale, state.offset);
-    highlightHexes([]);
+    handlePostMovePhase(this);
     return true;
   }
+  
 
   getAvailableHexes() {
     const visited = new Set();
@@ -75,25 +121,21 @@ class Unit {
       const key = `${current.q},${current.r},${current.s}`;
       if (visited.has(key)) continue;
       visited.add(key);
-
       const cell = state.map.flat().find(c => c.q === current.q && c.r === current.r && c.s === current.s);
       if (!cell || !this.moveTerrain.includes(cell.terrainType)) continue;
       if (current.dist > 0) result.push({ q: current.q, r: current.r, s: current.s });
 
       if (current.dist < this.moRange) {
         const neighbors = [
-          { dq: 1, dr: -1, ds: 0 },
-          { dq: 1, dr: 0, ds: -1 },
-          { dq: 0, dr: 1, ds: -1 },
-          { dq: -1, dr: 1, ds: 0 },
-          { dq: -1, dr: 0, ds: 1 },
-          { dq: 0, dr: -1, ds: 1 }
+          { dq: 1, dr: -1, ds: 0 }, { dq: 1, dr: 0, ds: -1 }, { dq: 0, dr: 1, ds: -1 },
+          { dq: -1, dr: 1, ds: 0 }, { dq: -1, dr: 0, ds: 1 }, { dq: 0, dr: -1, ds: 1 }
         ];
         for (let d of neighbors) {
           frontier.push({ q: current.q + d.dq, r: current.r + d.dr, s: current.s + d.ds, dist: current.dist + 1 });
         }
       }
     }
+
     return result;
   }
 
@@ -116,7 +158,11 @@ class Unit {
 
   select() { this.selected = true; }
   deselect() { this.selected = false; }
-  resetActions() { this.actions = 1; }
+  resetActions() {
+    this.actions = 1;
+    this.moveUsed = false; // 💥 добавить обязательно
+    this.chargeBonusGiven = false; // 💥 и это
+  }
 }
 
 const units = state.units;
@@ -125,7 +171,6 @@ function addUnit(q, r, s, type, owner) {
   const cell = state.map.flat().find(c => c.q === q && c.r === r && c.s === s);
   const unitOnCell = units.find(u => u.q === q && u.r === r && u.s === s);
   if (!cell || !ClassTemplates[type] || unitOnCell) return;
-
   const template = ClassTemplates[type];
   const unit = new Unit(q, r, s, type, owner, template);
   unit.color = owner === 'enemy' ? '#666' : undefined;
@@ -139,46 +184,35 @@ function generateUnits(unitsList) {
   for (const unit of unitsList) {
     addUnit(unit.q, unit.r, unit.s, unit.type, unit.owner);
   }
+  console.log('[DEBUG] All units on map after spawn:');
+  state.units.forEach(u => console.log(`${u.type} actions=${u.actions}`));
 }
 
 function selectUnit(unit) {
-    state.units.forEach(u => u.deselect());
-    unit.select();
-    state.selectedUnit = unit;
-  
-    const moveHexes = unit.getAvailableHexes();
-    const attackHexes = Unit.getAttackableHexes(unit);
-  
-    const markedAttacks = attackHexes.map(h => ({ ...h, isAttack: true }));
-  
-    state.highlightedHexes = [...moveHexes, ...markedAttacks];
-  
-    console.log("🟡 [selectUnit] MoveHexes:", moveHexes);
-    console.log("🔴 [selectUnit] MarkedAttackHexes:", markedAttacks);
-    highlightHexes(state.highlightedHexes);
-    renderUnits();
-  }
+  if (!unit || unit.actions <= 0) return;
+  state.units.forEach(u => u.deselect());
+  unit.select();
+  state.selectedUnit = unit;
+  highlightUnitContext(unit);
+  console.log(`[DEBUG] Selected unit actions: ${unit.actions}`);
+  renderUnits();
+}
 
 function resetUnitsActions() {
   units.forEach(unit => unit.resetActions());
 }
 
 function performAttack(attacker, defender) {
-  if (attacker.actions <= 0) return false;
-
-  // Example attack logic
+  if (!attacker || !defender || attacker.actions <= 0) return false;
   defender.hp -= attacker.atDamage;
   if (defender.hp <= 0) {
-    // Remove the unit from the state if its hp is 0 or less
     const index = state.units.indexOf(defender);
-    if (index > -1) {
-      state.units.splice(index, 1);
-    }
+    if (index > -1) state.units.splice(index, 1);
     console.log(`💥 Unit destroyed at (${defender.q}, ${defender.r}, ${defender.s})`);
   }
   attacker.actions -= 1;
   state.hasActedThisTurn = true;
-  updateEndTurnButton(true);
+  updateEndTurnButton();
   renderUnits();
   return true;
 }

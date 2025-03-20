@@ -60,6 +60,7 @@ function getInitialUnitsForScenario(type, map = []) {
         let cell2 = playerCells.find(c => c.q === 1 && c.r === -1 && c.s === 0);
         let enemy1 = enemyCells.find(c => c.q === -1 && c.r === 1 && c.s === 0);
         let enemy2 = enemyCells.find(c => c.q === 2 && c.r === -2 && c.s === 0);
+        let booster = getRandomFreeHex(playerCells, [cell1, cell2, enemy1, enemy2]);
 
         if (!cell1) cell1 = getRandomFreeHex(playerCells);
         if (!cell2 || cell2 === cell1) cell2 = getRandomFreeHex(playerCells, [cell1]);
@@ -70,6 +71,18 @@ function getInitialUnitsForScenario(type, map = []) {
         units.push({ q: cell2.q, r: cell2.r, s: cell2.s, type: 'WCC', owner: 'player1' });
         units.push({ q: enemy1.q, r: enemy1.r, s: enemy1.s, type: 'WCC', owner: 'enemy' });
         units.push({ q: enemy2.q, r: enemy2.r, s: enemy2.s, type: 'WBB', owner: 'enemy' });
+
+        // 👇 BOOST юнит с модулем действия
+        if (booster) {
+            units.push({
+                q: booster.q,
+                r: booster.r,
+                s: booster.s,
+                type: 'WDD',
+                owner: 'player1',
+                modules: ['Boost']
+            });
+        }
     }
 
     if (type === 'island' || type === 'maze') {
@@ -90,5 +103,6 @@ function getInitialUnitsForScenario(type, map = []) {
 
     return units;
 }
+
 
 export { generateScenario, getInitialUnitsForScenario, scenarioSettings };

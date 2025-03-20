@@ -23,18 +23,38 @@
     color: #fff;
 }
 
+/* 🔘 Базовый стиль кнопки */
 #end-turn-button {
     position: absolute;
     top: 10px;
     left: 10px;
     padding: 10px 20px;
-    background-color: #f00;
-    color: #fff;
+    
     border: none;
     cursor: pointer;
-    z-index: 1000; /* Убедиться, что кнопка выше всего */
+    z-index: 1000;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* 🔘 При отключении (на всякий случай fallback) */
 #end-turn-button:disabled {
     background-color: #888;
+    cursor: not-allowed;
+}
+
+/* 🔵 Стиль: ещё есть действия — кнопка синяя */
+#end-turn-button.btn-pending {
+    background-color: steelblue !important;
+    color: #fff;
+}
+
+/* ✅ Стиль: все действия завершены — кнопка зелёная */
+#end-turn-button.btn-done {
+    background-color: limegreen !important;
+    color: #000;
+}
+
+/* 🔘 Hover-эффект */
+#end-turn-button:hover {
+    opacity: 0.9;
 }
