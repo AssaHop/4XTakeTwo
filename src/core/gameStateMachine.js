@@ -1,10 +1,9 @@
-// 📂 src/core/gameStateMachine.js
-
 import { state } from './state.js';
 import { updateEndTurnButton } from '../ui/uiControls.js';
 import { runActingAction } from './unitActingActions.js';
-import { highlightUnitContext } from '../ui/highlightManager.js';
-import { highlightHexes } from '../ui/render.js';
+import { highlightOnlyAttacks } from '../ui/highlightManager.js'; // если хотим показать атаки при UNIT_ACTING
+import { clearMoveHighlights, clearAttackHighlights } from '../ui/highlightManager.js';
+
 const GameState = {
   IDLE: 'IDLE',
   UNIT_SELECTED: 'UNIT_SELECTED',
@@ -35,6 +34,15 @@ function handlePostMovePhase(unit) {
 
   console.log(`[DEBUG] handlePostMovePhase — Unit=${unit.type}, Actions=${unit.actions}, Charge=${hasCharge}, Pending=${hasPending}`);
 
+  // 💡 Всегда очищаем подсветку движения
+  clearMoveHighlights();
+
+  // 💡 Если нет Charge — очищаем и атаки
+  if (!hasCharge) {
+    clearAttackHighlights();
+  }
+
+  // Charge-переход
   if (hasCharge && hasPending) {
     console.log(`⚡ [ChargeTrigger] Launching UNIT_ACTING`);
     unit.pendingChargeAttack = false;
@@ -43,9 +51,7 @@ function handlePostMovePhase(unit) {
     return;
   }
 
-  // 💡 Всегда обновлять контекст после move
   if (unit.actions > 0) {
-    highlightUnitContext(unit);
     transitionTo(GameState.UNIT_SELECTED);
     return;
   }
@@ -56,11 +62,6 @@ function handlePostMovePhase(unit) {
   updateEndTurnButton();
   transitionTo(GameState.IDLE);
 }
-
-
-
-
-
 
 
 function handlePostActingPhase(unit) {

@@ -40,15 +40,24 @@ function getInitialUnitsForScenario(type, map = []) {
 
     function getTemplateSpawnCells(unitType) {
         const template = ClassTemplates[unitType];
-        if (!template) return [];
+        if (!template || !Array.isArray(map.flat())) return [];
         const spawnTerrain = template.spawnTerrain || ["surf", "water", "deep", "land"];
-        return map.flat().filter(cell => spawnTerrain.includes(cell.terrainType));
+        return map.flat().filter(cell => cell && spawnTerrain.includes(cell.terrainType));
     }
 
     function getRandomFreeHex(possibleCells, taken = []) {
-        const free = possibleCells.filter(cell =>
-            !taken.some(t => t.q === cell.q && t.r === cell.r && t.s === cell.s)
+        const validCells = (possibleCells || []).filter(c => c && c.q !== undefined);
+        const validTaken = (taken || []).filter(c => c && c.q !== undefined);
+
+        const free = validCells.filter(cell =>
+            !validTaken.some(t => t.q === cell.q && t.r === cell.r && t.s === cell.s)
         );
+
+        if (!free.length) {
+            console.warn('[WARN] getRandomFreeHex: no free cells found');
+            return null;
+        }
+
         return free[Math.floor(Math.random() * free.length)];
     }
 
@@ -67,12 +76,11 @@ function getInitialUnitsForScenario(type, map = []) {
         if (!enemy1) enemy1 = getRandomFreeHex(enemyCells, [cell1, cell2]);
         if (!enemy2 || enemy2 === enemy1) enemy2 = getRandomFreeHex(enemyCells, [cell1, cell2, enemy1]);
 
-        units.push({ q: cell1.q, r: cell1.r, s: cell1.s, type: 'WDD', owner: 'player1' });
-        units.push({ q: cell2.q, r: cell2.r, s: cell2.s, type: 'WCC', owner: 'player1' });
-        units.push({ q: enemy1.q, r: enemy1.r, s: enemy1.s, type: 'WCC', owner: 'enemy' });
-        units.push({ q: enemy2.q, r: enemy2.r, s: enemy2.s, type: 'WBB', owner: 'enemy' });
+        if (cell1) units.push({ q: cell1.q, r: cell1.r, s: cell1.s, type: 'WDD', owner: 'player1' });
+        if (cell2) units.push({ q: cell2.q, r: cell2.r, s: cell2.s, type: 'WCC', owner: 'player1' });
+        if (enemy1) units.push({ q: enemy1.q, r: enemy1.r, s: enemy1.s, type: 'WCC', owner: 'enemy' });
+        if (enemy2) units.push({ q: enemy2.q, r: enemy2.r, s: enemy2.s, type: 'WBB', owner: 'enemy' });
 
-        // 👇 BOOST юнит с модулем действия
         if (booster) {
             units.push({
                 q: booster.q,
@@ -103,6 +111,5 @@ function getInitialUnitsForScenario(type, map = []) {
 
     return units;
 }
-
 
 export { generateScenario, getInitialUnitsForScenario, scenarioSettings };

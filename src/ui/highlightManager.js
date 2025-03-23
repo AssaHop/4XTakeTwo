@@ -59,3 +59,12 @@ export function highlightUnitContext(unit) {
   highlightHexes(moveHexes);
   highlightAttackHexes(attackHexes);
 }
+
+export function clearMoveHighlights() {
+  state.highlightedHexes = [];
+  highlightHexes([]);
+} 
+export function clearAttackHighlights() {
+  state.attackHexes = [];
+  highlightAttackHexes([]);
+}
