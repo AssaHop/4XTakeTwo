@@ -14,7 +14,7 @@ const ActingActions = {
   },
 
   Boost: (unit) => {
-    console.log(`✨ [Boost Action] Healing allies near unit ${unit.type}`);
+    console.log(`✨ [Boost Action] boosting allies near unit ${unit.type}`);
     // Реализация Boost-эффекта
   },
 
@@ -29,7 +29,7 @@ const ActingActions = {
   },
 
   Recover: (unit) => {
-    console.log(`🌀 [Recover Action] Regaining actions`);
+    console.log(`🌀 [Recover Action] boosting allies near unit`);
     unit.actions = 1;
   },
 

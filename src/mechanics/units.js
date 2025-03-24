@@ -1,6 +1,9 @@
 // 📂 src/mechanics/units.js
 
-import { renderUnits, renderMap, highlightHexes } from '../ui/render.js';
+// ✅ PATCH: Maintain "empty action" unit selection; avoid highlight if no targets
+// ✅ PATCH: Clear highlights on End Turn or no valid move/attack after move
+
+import { renderUnits, renderMap } from '../ui/render.js';
 import { state } from '../core/state.js';
 import { updateEndTurnButton } from '../ui/uiControls.js';
 import { ClassTemplates } from '../core/classTemplates.js';
@@ -10,7 +13,7 @@ import { setupActionFlags } from '../core/unitFlags.js';
 import { techTree } from '../core/techTree.js';
 import { ModuleDefinitions } from '../core/modules/allModulesRegistry.js';
 import { handlePostMovePhase } from '../core/gameStateMachine.js';
-import { highlightUnitContext } from '../ui/highlightManager.js';
+import { highlightUnitContext, clearAllHighlights } from '../ui/highlightManager.js';
 
 class Unit {
   constructor(q, r, s, type, owner, options = {}) {
@@ -34,6 +37,8 @@ class Unit {
     this.pendingChargeAttack = false;
 
     this.recalculateMobility();
+    console.log(`🛠️ ${this.type} created: moRange=${this.moRange}, modules=${this.modules}`);
+
     applyModules(this);
     setupActionFlags(this);
   }
@@ -78,16 +83,17 @@ class Unit {
   }
 
   moveTo(q, r, s) {
-    if (this.actions <= 0) return false;
-  
-    if (this.moveUsed && !this.hasModule('Flee')) {
-      console.warn('[Move] Already moved once');
+    if (this.actions <= 0) {
+      console.log(`[MOVE BLOCKED] ${this.type} has no actions`);
       return false;
     }
   
     const allowed = this.getAvailableHexes();
     const allowedTarget = allowed.find(h => h.q === q && h.r === r && h.s === s);
-    if (!allowedTarget) return false;
+    if (!allowedTarget) {
+      console.log(`[MOVE BLOCKED] Target hex not in available move list`);
+      return false;
+    }
   
     this.q = q;
     this.r = r;
@@ -95,21 +101,22 @@ class Unit {
     this.actions -= 1;
     this.moveUsed = true;
   
-    // ✅ CHARGE срабатывает сразу после Move
-    if (
-      this.hasModule('Charge') &&
-      !this.chargeBonusGiven
-    ) {
-      console.log(`⚡ [Charge Bonus] +1 Action after Move`);
+    console.log(`🚶 [MOVE] ${this.type} moved to (${q},${r},${s}) | Remaining actions=${this.actions}`);
+  
+    if (this.hasModule('Charge') && !this.chargeBonusGiven) {
+      console.log(`⚡ [Charge Bonus] +1 action granted`);
       this.actions += 1;
       this.chargeBonusGiven = true;
     }
   
     renderMap(state.scale, state.offset);
     handlePostMovePhase(this);
+  
+    // ✅ Обновляем подсветку после перемещения
+    highlightUnitContext(this);
+  
     return true;
   }
-  
 
   getAvailableHexes() {
     const visited = new Set();
@@ -160,8 +167,8 @@ class Unit {
   deselect() { this.selected = false; }
   resetActions() {
     this.actions = 1;
-    this.moveUsed = false; // 💥 добавить обязательно
-    this.chargeBonusGiven = false; // 💥 и это
+    this.moveUsed = false;
+    this.chargeBonusGiven = false;
   }
 }
 
@@ -194,7 +201,7 @@ function selectUnit(unit) {
   unit.select();
   state.selectedUnit = unit;
   highlightUnitContext(unit);
-  console.log(`[DEBUG] Selected unit actions: ${unit.actions}`);
+  console.log(`[SELECT] Unit ${unit.type} selected → actions=${unit.actions}, moRange=${unit.moRange}, atRange=${unit.atRange}`);
   renderUnits();
 }
 
