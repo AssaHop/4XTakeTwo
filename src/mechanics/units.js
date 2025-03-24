@@ -1,7 +1,4 @@
-// 📂 src/mechanics/units.js
-
-// ✅ PATCH: Maintain "empty action" unit selection; avoid highlight if no targets
-// ✅ PATCH: Clear highlights on End Turn or no valid move/attack after move
+// ✅ units.js (обновлён — защита от повторного движения после moveUsed)
 
 import { renderUnits, renderMap } from '../ui/render.js';
 import { state } from '../core/state.js';
@@ -34,11 +31,10 @@ class Unit {
     this.weType = options.weType || null;
     this.modules = options.modules || [];
 
-    this.pendingChargeAttack = false;
+    this.chargeBonusGiven = false;
+    this.moveUsed = false;
 
     this.recalculateMobility();
-    console.log(`🛠️ ${this.type} created: moRange=${this.moRange}, modules=${this.modules}`);
-
     applyModules(this);
     setupActionFlags(this);
   }
@@ -83,40 +79,41 @@ class Unit {
   }
 
   moveTo(q, r, s) {
-    if (this.actions <= 0) {
-      console.log(`[MOVE BLOCKED] ${this.type} has no actions`);
+    if (this.actions <= 0 || this.moveUsed) {
+      console.log(`[MOVE BLOCKED] ${this.type} cannot move again`);
       return false;
     }
-  
+
     const allowed = this.getAvailableHexes();
     const allowedTarget = allowed.find(h => h.q === q && h.r === r && h.s === s);
     if (!allowedTarget) {
       console.log(`[MOVE BLOCKED] Target hex not in available move list`);
       return false;
     }
-  
+
     this.q = q;
     this.r = r;
     this.s = s;
     this.actions -= 1;
     this.moveUsed = true;
-  
+
     console.log(`🚶 [MOVE] ${this.type} moved to (${q},${r},${s}) | Remaining actions=${this.actions}`);
-  
+
     if (this.hasModule('Charge') && !this.chargeBonusGiven) {
-      console.log(`⚡ [Charge Bonus] +1 action granted`);
       this.actions += 1;
       this.chargeBonusGiven = true;
+      console.log(`⚡ [Charge] +1 action granted`);
     }
-  
+
     renderMap(state.scale, state.offset);
     handlePostMovePhase(this);
-  
-    // ✅ Обновляем подсветку после перемещения
     highlightUnitContext(this);
-  
+
     return true;
   }
+
+  // остальная часть класса Unit и методы без изменений...
+
 
   getAvailableHexes() {
     const visited = new Set();

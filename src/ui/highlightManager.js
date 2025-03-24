@@ -1,4 +1,4 @@
-// 📂 src/ui/highlightManager.js
+// ✅ highlightManager.js (улучшенная версия — скрытие moveHexes при moveUsed)
 
 import { highlightHexes, highlightAttackHexes } from './render.js';
 import { Unit } from '../mechanics/units.js';
@@ -10,7 +10,7 @@ export function updateHighlighting() {
     clearAllHighlights();
     return;
   }
-  const moveHexes = unit.getAvailableHexes();
+  const moveHexes = unit.moveUsed ? [] : unit.getAvailableHexes();
   const attackHexes = Unit.getAttackableHexes(unit);
   state.highlightedHexes = moveHexes;
   state.attackHexes = attackHexes;
@@ -55,27 +55,15 @@ export function highlightUnitContext(unit) {
     return;
   }
 
-  const moveHexes = unit.getAvailableHexes();
+  const moveHexes = unit.moveUsed ? [] : unit.getAvailableHexes();
   const attackHexes = Unit.getAttackableHexes(unit);
 
   console.log('📍 moveHexes:', moveHexes.map(h => `(${h.q},${h.r},${h.s})`));
   console.log('📍 attackHexes:', attackHexes.map(h => `(${h.q},${h.r},${h.s})`));
 
-  // ✅ если нет attackHexes — сбрасываем атаку
-  if (!attackHexes || attackHexes.length === 0) {
-    console.log('🚫 No attack targets — clearing attack highlights');
-    clearAttackHighlights();
-  } else {
-    state.attackHexes = attackHexes;
-    highlightAttackHexes(attackHexes);
-  }
+  state.highlightedHexes = moveHexes;
+  state.attackHexes = attackHexes;
 
-  // ✅ если нет moveHexes — сбрасываем мув
-  if (!moveHexes || moveHexes.length === 0) {
-    console.log('🚫 No move targets — clearing move highlights');
-    clearMoveHighlights();
-  } else {
-    state.highlightedHexes = moveHexes;
-    highlightHexes(moveHexes);
-  }
+  highlightHexes(moveHexes);
+  highlightAttackHexes(attackHexes);
 }

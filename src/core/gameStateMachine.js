@@ -1,8 +1,8 @@
+// ✅ gameStateMachine.js (надежное управление подсветкой — аккуратно, без отключения нужного)
+
 import { state } from './state.js';
 import { updateEndTurnButton } from '../ui/uiControls.js';
-import { runActingAction } from './unitActingActions.js';
-import { highlightOnlyAttacks } from '../ui/highlightManager.js'; // если хотим показать атаки при UNIT_ACTING
-import { clearMoveHighlights, clearAttackHighlights } from '../ui/highlightManager.js';
+import { highlightUnitContext, clearMoveHighlights, clearAttackHighlights, clearAllHighlights } from '../ui/highlightManager.js';
 
 const GameState = {
   IDLE: 'IDLE',
@@ -29,46 +29,41 @@ function is(stateValue) {
 }
 
 function handlePostMovePhase(unit) {
-  const hasCharge = unit.hasModule('Charge');
-  const hasPending = unit.pendingChargeAttack;
+  console.log(`[DEBUG] handlePostMovePhase — Unit=${unit.type}, Actions=${unit.actions}, moveUsed=${unit.moveUsed}`);
 
-  console.log(`[DEBUG] handlePostMovePhase — Unit=${unit.type}, Actions=${unit.actions}, Charge=${hasCharge}, Pending=${hasPending}`);
-
-  // 💡 Всегда очищаем подсветку движения
+  // 💡 Надежно: очищаем move подсветку, но перерисуем всё через highlightUnitContext ниже
   clearMoveHighlights();
+  clearAttackHighlights();
 
-  // 💡 Если нет Charge — очищаем и атаки
-  if (!hasCharge) {
-    clearAttackHighlights();
-  }
-
-  // Charge-переход
-  if (hasCharge && hasPending) {
-    console.log(`⚡ [ChargeTrigger] Launching UNIT_ACTING`);
-    unit.pendingChargeAttack = false;
-    transitionTo(GameState.UNIT_ACTING);
-    runActingAction(unit);
+  if (unit.actions > 0) {
+    transitionTo(GameState.UNIT_SELECTED);
+    highlightUnitContext(unit); // ✅ подсветка будет пересчитана и возвращена, если юнит ещё активен
     return;
   }
 
-  if (unit.actions > 0) {
+  unit.actions = 0;
+  state.hasActedThisTurn = true;
+  updateEndTurnButton();
+  transitionTo(GameState.IDLE);
+  clearAllHighlights();
+}
+
+function handlePostActingPhase(unit) {
+  // ⚡ Поддержка Flee — разрешаем движение после acting
+  if (unit.canMoveAfterAttack && !unit.moveUsed) {
+    console.log(`💨 [Flee Module] Move allowed after acting`);
+    unit.actions = 1;
+    highlightUnitContext(unit); // ✅ здесь тоже будет полное обновление подсветки
     transitionTo(GameState.UNIT_SELECTED);
     return;
   }
 
-  console.log(`⚠️ [PostMovePhase] No actions left — switching to IDLE`);
   unit.actions = 0;
+  unit.chargeBonusGiven = false;
   state.hasActedThisTurn = true;
   updateEndTurnButton();
   transitionTo(GameState.IDLE);
-}
-
-
-function handlePostActingPhase(unit) {
-  unit.actions = 0;
-  state.hasActedThisTurn = true;
-  updateEndTurnButton();
-  transitionTo(GameState.IDLE);
+  clearAllHighlights();
 }
 
 export {
