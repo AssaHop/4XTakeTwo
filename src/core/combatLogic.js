@@ -35,21 +35,16 @@ function performAttack(attacker, target) {
     target.status.push('frozen');
   }
 
-  // 🧠 FSM должен идти до очистки selectedUnit!
+  // 🧠 FSM обработает всё (повторная атака, движение, завершение)
   handlePostAttackPhase(attacker, lastAttackKilled);
   console.log("🔥 FSM complete:", attacker.actions);
-
-  // ⛔ очищаем только если действий больше нет (и не были восстановлены FSM)
-  if (attacker.actions <= 0) {
-    attacker.deselect?.();
-    state.selectedUnit = null;
-    state.highlightedHexes = [];
-  }
 
   state.hasActedThisTurn = true;
   renderUnits(state.scale, state.offset);
   updateEndTurnButton(true);
 }
+
+
 
 function canAttack(attacker, target) {
   if (!attacker || !target) return false;

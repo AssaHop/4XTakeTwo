@@ -1,9 +1,8 @@
-// ✅ gameStateMachine.js (исправлен синтаксис log + FSM Percy/Flee поддержка)
-
 import { state } from './state.js';
 import { updateEndTurnButton } from '../ui/uiControls.js';
 import {
   highlightUnitContext,
+  highlightOnlyAttacks,
   clearMoveHighlights,
   clearAttackHighlights,
   clearAllHighlights
@@ -52,20 +51,16 @@ function handlePostMovePhase(unit) {
 }
 
 function handlePostActingPhase(unit) {
-  if (unit.canMoveAfterAttack) {
-    if (!unit.moveUsed) {
-      console.log(`💨 [Flee Module] Move allowed after acting`);
-      unit.actions = 1;
-      highlightUnitContext(unit);
-      transitionTo(GameState.UNIT_SELECTED);
-      return;
-    } else {
-      console.log(`⛔ [Flee Blocked] moveUsed=true — повторное движение запрещено`);
-    }
-  } else {
-    console.log(`❌ [Flee Skipped] Unit has no Flee capability`);
+  if (unit.canMoveAfterAttack && !unit.moveUsed) {
+    console.log(`💨 [Flee Module] Move allowed after acting`);
+    unit.actions = 1;
+    unit.fleeBonusGiven = true;
+    highlightUnitContext(unit);
+    transitionTo(GameState.UNIT_SELECTED);
+    return;
   }
 
+  console.log(`⛔ [Acting Complete] No move after action`);
   unit.actions = 0;
   unit.chargeBonusGiven = false;
   state.hasActedThisTurn = true;
@@ -77,46 +72,30 @@ function handlePostActingPhase(unit) {
 function handlePostAttackPhase(unit, killed = false) {
   console.log(`[FSM] handlePostAttackPhase → killed=${killed}, canRepeatAttackOnKill=${unit.canRepeatAttackOnKill}`);
 
-  // ⛔ Предотвращение некорректной переактивации
-  if (unit.actions <= 0) {
-    console.log('🚫 [Guard] Unit has no actions after attack – deselecting');
-    unit.deselect?.();
-    state.selectedUnit = null;
-    clearAllHighlights();
-    updateEndTurnButton();
-    transitionTo(GameState.IDLE);
-    return;
-  }
-
-  // 🔁 Повторная атака на убийство (Percy)
   if (killed && unit.canRepeatAttackOnKill) {
     unit.actions = 1;
-    console.log('🔁 [Percy Triggered] Unit can attack again');
-    highlightUnitContext(unit);
+    console.log(`🔁 [Percy Triggered] Unit can attack again — but NOT move`);
+    highlightOnlyAttacks();
     transitionTo(GameState.UNIT_SELECTED);
     return;
   }
 
-  // 🏃 Возможность убежать после атаки (Flee)
-  if (unit.canMoveAfterAttack && !unit.moveUsed) {
+  if (unit.canMoveAfterAttack && !unit.moveUsed && !unit.fleeBonusGiven) {
     unit.actions = 1;
+    unit.fleeBonusGiven = true;
     console.log('🏃 [Flee Triggered] Move after attack allowed');
     highlightUnitContext(unit);
     transitionTo(GameState.UNIT_SELECTED);
     return;
   }
 
-  // ✅ Иначе — конец активации
   unit.actions = 0;
   unit.chargeBonusGiven = false;
-  unit.deselect?.();
-  state.selectedUnit = null;
   state.hasActedThisTurn = true;
-  clearAllHighlights();
   updateEndTurnButton();
   transitionTo(GameState.IDLE);
+  clearAllHighlights();
 }
-
 
 export {
   GameState,

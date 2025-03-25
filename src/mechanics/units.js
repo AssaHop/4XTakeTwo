@@ -137,10 +137,21 @@ class Unit {
         continue;
       }
   
-      if (!this.moveTerrain.includes(cell.terrainType)) {
-        console.log(`🚫 [Terrain Blocked] ${cell.terrainType} at (${cell.q},${cell.r},${cell.s})`);
-        continue;
-      }
+      const allowed = this.moveTerrain || [];
+
+const terrain = cell.terrainType;
+
+const blocked =
+  (terrain === 'deep' && !allowed.includes('Navy')) ||
+  (terrain === 'surf' && !(allowed.includes('Sail') || allowed.includes('Navy'))) ||
+  (terrain === 'land' && !allowed.includes('Land')) ||
+  (terrain === 'void' && !allowed.includes('Air')) ||
+  (terrain === 'mount' && !allowed.includes('Climb'));
+
+if (blocked) {
+  console.log(`🚫 [Terrain Blocked] ${terrain} at (${cell.q},${cell.r},${cell.s})`);
+  continue;
+}
   
       if (current.dist > 0) {
         result.push({ q: current.q, r: current.r, s: current.s });
@@ -194,6 +205,21 @@ function addUnit(q, r, s, type, owner) {
   const cell = state.map.flat().find(c => c.q === q && c.r === r && c.s === s);
   const unitOnCell = units.find(u => u.q === q && u.r === r && u.s === s);
   if (!cell || !ClassTemplates[type] || unitOnCell) return;
+
+  const moveSet = ClassTemplates[type]?.moveTerrain || [];
+  const terrain = cell?.terrainType;
+
+  const isBlockedSpawn =
+    (terrain === 'deep' && !moveSet.includes('Navy')) ||
+    (terrain === 'surf' && !(moveSet.includes('Sail') || moveSet.includes('Navy'))) ||
+    (terrain === 'land' && !moveSet.includes('Land')) ||
+    (terrain === 'void' && !moveSet.includes('Air'));
+
+  if (isBlockedSpawn) {
+    console.warn(`❌ Cannot spawn ${type} on ${terrain} (${q}, ${r}, ${s})`);
+    return;
+  }
+
   const template = ClassTemplates[type];
   const unit = new Unit(q, r, s, type, owner, template);
   unit.color = owner === 'enemy' ? '#666' : undefined;
@@ -201,6 +227,7 @@ function addUnit(q, r, s, type, owner) {
   renderUnits();
   console.log(`✅ Unit ADDED: ${type} at (${q}, ${r}, ${s})`);
 }
+
 
 function generateUnits(unitsList) {
   units.length = 0;
@@ -212,7 +239,24 @@ function generateUnits(unitsList) {
 }
 
 function selectUnit(unit) {
-  if (!unit || unit.actions <= 0) return;
+  if (!unit) return;
+
+  const hasMoves = unit.getAvailableHexes().length > 0;
+  const hasAttacks = Unit.getAttackableHexes(unit).length > 0;
+
+  const isOutOfActions = unit.actions <= 0;
+  const isPercyReady = unit.canRepeatAttackOnKill && unit.lastAttackWasKill && hasAttacks;
+
+  const isInactive =
+    (!isPercyReady && isOutOfActions) ||                     // Нет действий и не Percy
+    (unit.moveUsed && !hasAttacks) ||                        // Двигался и нечего атаковать
+    (!hasMoves && !hasAttacks);                              // Вообще нечего делать
+
+  if (isInactive) {
+    console.warn(`⚠️ [Guard] ${unit.type} cannot act – skip selection`);
+    return;
+  }
+
   state.units.forEach(u => u.deselect());
   unit.select();
   state.selectedUnit = unit;
@@ -220,6 +264,8 @@ function selectUnit(unit) {
   console.log(`[SELECT] Unit ${unit.type} selected → actions=${unit.actions}, moRange=${unit.moRange}, atRange=${unit.atRange}`);
   renderUnits();
 }
+
+
 
 function resetUnitsActions() {
   units.forEach(unit => unit.resetActions());
