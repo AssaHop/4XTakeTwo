@@ -1,7 +1,8 @@
-// 📂 src/core/unitActingActions.js
+// 📂 core/unitActingActions.js — финальная версия с Percy, Flee и логами
 
-import { performAttack } from '../mechanics/units.js';
+import { performAttack } from '../core/combatLogic.js';
 import { handlePostActingPhase } from './gameStateMachine.js';
+import { highlightUnitContext } from '../ui/highlightManager.js';
 
 const ActingActions = {
   Charge: (unit, target) => {
@@ -14,43 +15,41 @@ const ActingActions = {
   },
 
   Boost: (unit) => {
-    console.log(`✨ [Boost Action] boosting allies near unit ${unit.type}`);
-    // Реализация Boost-эффекта
+    console.log(`✨ [Boost Action] Buffing allies near ${unit.type} (not implemented)`);
   },
 
-  Percy: (unit) => {
-    console.log(`🔁 [Percy Bonus] Checking kill streaks`);
-    // Реализация бонуса на kill
+  Percy: (unit, target) => {
+    console.log(`🔁 [Percy] Checking for bonus attack...`);
+    if (unit.canRepeatAttackOnKill && target?.hp <= 0) {
+      unit.actions = 1;
+      console.log(`🔥 [Percy Triggered] Extra attack granted`);
+      highlightUnitContext(unit); // Подсветка после убийства
+    }
   },
 
   Flee: (unit) => {
-    console.log(`🏃 [Flee Action] Moving away`);
-    // Реализация flee-движения
+    console.log(`🏃 [Flee Placeholder] Flee is handled in FSM. No direct action here.`);
   },
 
   Recover: (unit) => {
-    console.log(`🌀 [Recover Action] boosting allies near unit`);
+    console.log(`🌀 [Recover] Full action recovery`);
     unit.actions = 1;
   },
 
   Explode: (unit) => {
-    console.log(`💣 [Explode Action] Kaboom!`);
-    // Реализация взрыва
+    console.log(`💣 [Explode] Explosion not implemented`);
   },
 
   Seize: (unit) => {
-    console.log(`🏛️ [Seize Action] Attempting seize`);
-    // Реализация Seize
+    console.log(`🏛️ [Seize] Capturing mechanic not implemented`);
   },
 
   Corrupt: (unit) => {
-    console.log(`☣️ [Corrupt Action] Spreading corruption`);
-    // Реализация Corrupt
+    console.log(`☣️ [Corrupt] Effect spread not implemented`);
   },
 
   Invade: (unit) => {
-    console.log(`🛸 [Invade Action] Drone deploy on city`);
-    // Реализация Invade
+    console.log(`🛸 [Invade] Drone deploy not implemented`);
   }
 };
 
@@ -60,16 +59,28 @@ function runActingAction(unit, target = null) {
     return;
   }
 
+  console.log(`⚙️ [UNIT_ACTING] Executing actions for ${unit.type}...`);
+  let grantedExtraAction = false;
+
   for (const mod of unit.modules) {
     const action = ActingActions[mod];
     if (typeof action === 'function') {
-      console.log(`⚙️ [UNIT_ACTING] Executing: ${mod}`);
+      console.log(`▶️ Running module action: ${mod}`);
+      const before = unit.actions;
       action(unit, target);
-      break;
+
+      if (unit.actions > before) {
+        grantedExtraAction = true;
+      }
     }
   }
 
-  handlePostActingPhase(unit); // ✅ Завершение ACTING
+  if (!grantedExtraAction) {
+    console.log('⏹️ No extra actions — finishing acting phase');
+    handlePostActingPhase(unit);
+  } else {
+    console.log('🔁 Extra action granted — unit stays active');
+  }
 }
 
 export { runActingAction };

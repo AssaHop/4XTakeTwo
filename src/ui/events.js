@@ -1,4 +1,4 @@
-import { selectUnit, generateUnits, Unit, performAttack } from '../mechanics/units.js';
+import { selectUnit, generateUnits, Unit } from '../mechanics/units.js';
 import { pixelToCube, cubeRound } from '../world/map.js';
 import { state } from '../core/state.js';
 import { GameState, transitionTo, handlePostMovePhase } from '../core/gameStateMachine.js';
@@ -6,6 +6,7 @@ import { setupEndTurnButton, updateEndTurnButton } from './uiControls.js';
 import { renderUnits } from './render.js';
 import { highlightHexes, highlightAttackHexes }  from './render.js';
 import { highlightUnitContext } from './highlightManager.js';
+import { performAttack } from '../core/combatLogic.js';
 
 
 const squashFactor = 0.7;

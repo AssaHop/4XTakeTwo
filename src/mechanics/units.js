@@ -12,6 +12,7 @@ import { ModuleDefinitions } from '../core/modules/allModulesRegistry.js';
 import { handlePostMovePhase } from '../core/gameStateMachine.js';
 import { highlightUnitContext, clearAllHighlights } from '../ui/highlightManager.js';
 
+
 class Unit {
   constructor(q, r, s, type, owner, options = {}) {
     this.q = q;
@@ -33,6 +34,7 @@ class Unit {
 
     this.chargeBonusGiven = false;
     this.moveUsed = false;
+    this.fleeBonusGiven = false;
 
     this.recalculateMobility();
     applyModules(this);
@@ -119,16 +121,31 @@ class Unit {
     const visited = new Set();
     const result = [];
     const frontier = [{ q: this.q, r: this.r, s: this.s, dist: 0 }];
-
+  
+    console.log(`🔍 [DEBUG] getAvailableHexes: Unit=${this.type} at (${this.q},${this.r},${this.s}) moRange=${this.moRange}`);
+  
     while (frontier.length > 0) {
       const current = frontier.shift();
       const key = `${current.q},${current.r},${current.s}`;
       if (visited.has(key)) continue;
       visited.add(key);
+  
       const cell = state.map.flat().find(c => c.q === current.q && c.r === current.r && c.s === current.s);
-      if (!cell || !this.moveTerrain.includes(cell.terrainType)) continue;
-      if (current.dist > 0) result.push({ q: current.q, r: current.r, s: current.s });
-
+  
+      if (!cell) {
+        console.warn(`⚠️ [No Cell] (${current.q},${current.r},${current.s}) not found on map`);
+        continue;
+      }
+  
+      if (!this.moveTerrain.includes(cell.terrainType)) {
+        console.log(`🚫 [Terrain Blocked] ${cell.terrainType} at (${cell.q},${cell.r},${cell.s})`);
+        continue;
+      }
+  
+      if (current.dist > 0) {
+        result.push({ q: current.q, r: current.r, s: current.s });
+      }
+  
       if (current.dist < this.moRange) {
         const neighbors = [
           { dq: 1, dr: -1, ds: 0 }, { dq: 1, dr: 0, ds: -1 }, { dq: 0, dr: 1, ds: -1 },
@@ -139,7 +156,8 @@ class Unit {
         }
       }
     }
-
+  
+    console.log(`✅ [HEXES RESULT] ${result.length} reachable tiles for ${this.type}`);
     return result;
   }
 
@@ -166,6 +184,7 @@ class Unit {
     this.actions = 1;
     this.moveUsed = false;
     this.chargeBonusGiven = false;
+    this.fleeBonusGiven = false;
   }
 }
 
@@ -205,20 +224,9 @@ function selectUnit(unit) {
 function resetUnitsActions() {
   units.forEach(unit => unit.resetActions());
 }
-
-function performAttack(attacker, defender) {
-  if (!attacker || !defender || attacker.actions <= 0) return false;
-  defender.hp -= attacker.atDamage;
-  if (defender.hp <= 0) {
-    const index = state.units.indexOf(defender);
-    if (index > -1) state.units.splice(index, 1);
-    console.log(`💥 Unit destroyed at (${defender.q}, ${defender.r}, ${defender.s})`);
-  }
-  attacker.actions -= 1;
-  state.hasActedThisTurn = true;
-  updateEndTurnButton();
-  renderUnits();
-  return true;
+function hasModule(unit, modName) {
+  return Array.isArray(unit.modules) && unit.modules.includes(modName);
 }
 
-export { Unit, units, addUnit, generateUnits, selectUnit, resetUnitsActions, performAttack };
+
+export { Unit, units, addUnit, generateUnits, selectUnit, resetUnitsActions, hasModule };

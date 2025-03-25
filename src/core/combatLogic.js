@@ -1,10 +1,10 @@
-// 📂 core/combatLogic.js — адаптировано под actionFlags юнита
+// 📂 core/combatLogic.js
 
 import { renderUnits } from '../ui/render.js';
-import { updateEndTurnButton } from '../ui/events.js';
+import { updateEndTurnButton } from '../ui/uiControls.js';
 import { state } from '../core/state.js';
 import { handlePostAttackPhase } from './gameStateMachine.js';
-import { hasModule } from './units.js';
+import { hasModule } from '../mechanics/units.js';
 
 function performAttack(attacker, target) {
   if (attacker.actions <= 0) return;
@@ -23,7 +23,6 @@ function performAttack(attacker, target) {
     lastAttackKilled = true;
   }
 
-  // Обработка последствий модулей (например, Seize, Corrupt, Surge и т.д.)
   if (hasModule(attacker, 'Corrupt')) {
     console.log('☣️ Corrupt: цель получает эффект разложения');
     target.status = target.status || [];
@@ -36,7 +35,11 @@ function performAttack(attacker, target) {
     target.status.push('frozen');
   }
 
-  // Удаление выделения юнита при нулевых действиях
+  // 🧠 FSM должен идти до очистки selectedUnit!
+  handlePostAttackPhase(attacker, lastAttackKilled);
+  console.log("🔥 FSM complete:", attacker.actions);
+
+  // ⛔ очищаем только если действий больше нет (и не были восстановлены FSM)
   if (attacker.actions <= 0) {
     attacker.deselect?.();
     state.selectedUnit = null;
@@ -46,9 +49,6 @@ function performAttack(attacker, target) {
   state.hasActedThisTurn = true;
   renderUnits(state.scale, state.offset);
   updateEndTurnButton(true);
-
-  // FSM-переход после атаки (Percy, Flee)
-  handlePostAttackPhase(attacker, lastAttackKilled);
 }
 
 function canAttack(attacker, target) {

@@ -26,7 +26,7 @@ export const NavigationModules = {
     effect: (unit) => {
       unit.moveTerrain = ['water', 'deep'];
       unit.moRange += 1;
-      unit.atRange += 1;
+      unit.atRange += 0;
     }
   },
   Air: {
