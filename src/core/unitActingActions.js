@@ -1,8 +1,7 @@
-// 📂 core/unitActingActions.js — финальная версия с Percy, Flee и логами
+// 📂 core/unitActingActions.js — адаптировано под FSM
 
 import { performAttack } from '../core/combatLogic.js';
-import { handlePostActingPhase } from './gameStateMachine.js';
-import { highlightUnitContext } from '../ui/highlightManager.js';
+import { evaluatePostAction } from './gameStateMachine.js';
 
 const ActingActions = {
   Charge: (unit, target) => {
@@ -10,62 +9,57 @@ const ActingActions = {
       console.warn(`⚠️ [Charge] No valid target! Skipping Charge action.`);
       return;
     }
-    const result = performAttack(unit, target);
-    console.log(`⚔️ [Charge Action] Attack result: ${result}`);
+    console.log(`⚔️ [Charge Action] Performing attack`);
+    performAttack(unit, target);
   },
 
   Boost: (unit) => {
     console.log(`✨ [Boost Action] Buffing allies near ${unit.type} (not implemented)`);
   },
 
-  Percy: (unit, target) => {
-    console.log(`🔁 [Percy] Checking for bonus attack...`);
-    if (unit.canRepeatAttackOnKill && target?.hp <= 0) {
-      unit.actions = 1;
-      console.log(`🔥 [Percy Triggered] Extra attack granted`);
-      highlightUnitContext(unit); // Подсветка после убийства
-    }
+  Percy: () => {
+    console.log(`🔁 [Percy] FSM handles repeat logic on kill. No direct action.`);
   },
 
-  Flee: (unit) => {
-    console.log(`🏃 [Flee Placeholder] Flee is handled in FSM. No direct action here.`);
+  Flee: () => {
+    console.log(`🏃 [Flee] FSM handles move-after-attack. No direct action.`);
   },
 
   Recover: (unit) => {
-    console.log(`🌀 [Recover] Full action recovery`);
+    console.log(`🌀 [Recover] Unit regains 1 action`);
     unit.actions = 1;
   },
 
-  Explode: (unit) => {
-    console.log(`💣 [Explode] Explosion not implemented`);
+  Explode: () => {
+    console.log(`💣 [Explode] Not implemented`);
   },
 
-  Seize: (unit) => {
-    console.log(`🏛️ [Seize] Capturing mechanic not implemented`);
+  Seize: () => {
+    console.log(`🏛️ [Seize] Capture not implemented`);
   },
 
-  Corrupt: (unit) => {
-    console.log(`☣️ [Corrupt] Effect spread not implemented`);
+  Corrupt: () => {
+    console.log(`☣️ [Corrupt] Status effect is already handled in attack logic`);
   },
 
-  Invade: (unit) => {
-    console.log(`🛸 [Invade] Drone deploy not implemented`);
+  Invade: () => {
+    console.log(`🛸 [Invade] Not implemented`);
   }
 };
 
 function runActingAction(unit, target = null) {
   if (!unit.modules || unit.modules.length === 0) {
-    handlePostActingPhase(unit);
+    evaluatePostAction(unit, { type: 'acting' });
     return;
   }
 
-  console.log(`⚙️ [UNIT_ACTING] Executing actions for ${unit.type}...`);
+  console.log(`⚙️ [UNIT_ACTING] Running acting modules for ${unit.type}`);
   let grantedExtraAction = false;
 
   for (const mod of unit.modules) {
     const action = ActingActions[mod];
     if (typeof action === 'function') {
-      console.log(`▶️ Running module action: ${mod}`);
+      console.log(`▶️ Executing: ${mod}`);
       const before = unit.actions;
       action(unit, target);
 
@@ -76,10 +70,10 @@ function runActingAction(unit, target = null) {
   }
 
   if (!grantedExtraAction) {
-    console.log('⏹️ No extra actions — finishing acting phase');
-    handlePostActingPhase(unit);
+    console.log('⏹️ No extra actions — ending acting phase');
+    evaluatePostAction(unit, { type: 'acting' });
   } else {
-    console.log('🔁 Extra action granted — unit stays active');
+    console.log('🔁 Extra action granted — FSM will wait for next move');
   }
 }
 

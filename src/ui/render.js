@@ -1,5 +1,3 @@
-// 📂 src/ui/render.js
-
 import { cubeToPixel, HEX_RADIUS } from '../world/map.js';
 import { state } from '../core/state.js';
 
@@ -19,54 +17,36 @@ function renderMap(newScale = state.scale ?? scale, offset = state.offset ?? { x
   canvas.width = canvas.clientWidth;
   canvas.height = canvas.clientHeight;
 
-  const offsetX = offset.x;
-  const offsetY = offset.y;
-
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.save();
-  ctx.translate(offsetX, offsetY);
+  ctx.translate(offset.x, offset.y);
   ctx.scale(scale, scale);
   ctx.scale(1, squashFactor);
 
+  // Render map terrain
   if (!state.map || state.map.length === 0) return;
-
   state.map.forEach(row => {
     row.forEach(cell => {
       const { x, y } = cubeToPixel(cell.q, cell.r, cell.s, 0, 0, hexOffset.x, hexOffset.y);
       drawHex(ctx, x, y, HEX_RADIUS, cell.terrainType);
-
-      const isMoveHighlight = state.highlightedHexes?.some(hex => cubeEquals(hex, cell) && !hex.isAttack);
-      if (isMoveHighlight) drawHighlightCircle(ctx, x, y);
     });
+  });
+
+  // Render movement highlights
+  (state.highlightedHexes || []).forEach(cell => {
+    const { x, y } = cubeToPixel(cell.q, cell.r, cell.s, 0, 0, hexOffset.x, hexOffset.y);
+    drawHighlightCircle(ctx, x, y);
+  });
+
+  // Render attack outlines
+  (state.attackHexes || []).forEach(cell => {
+    const { x, y } = cubeToPixel(cell.q, cell.r, cell.s, 0, 0, hexOffset.x, hexOffset.y);
+    drawHexAttackOutline(ctx, x, y);
   });
 
   ctx.restore();
 
   renderUnits(scale, offset, hexOffset);
-  renderAttackHighlights(hexOffset);
-
-  console.log("📍 HighlightedHexes:", state.highlightedHexes);
-  console.log("[renderMap] ATTACK ONLY HEXES:", state.attackHexes);
-}
-
-function renderAttackHighlights(hexOffset = { x: 0, y: 0 }) {
-  const canvas = document.getElementById('game-canvas');
-  const ctx = canvas.getContext('2d');
-
-  ctx.save();
-  ctx.translate(state.offset.x, state.offset.y);
-  ctx.scale(state.scale, state.scale);
-  ctx.scale(1, squashFactor);
-
-  (state.attackHexes || [])
-    .filter(hex => hex.isAttack)
-    .forEach(hex => {
-      const { x, y } = cubeToPixel(hex.q, hex.r, hex.s, 0, 0, hexOffset.x, hexOffset.y);
-      console.log(`🔴 ATTACK HIGHLIGHT OVERLAY: (${hex.q}, ${hex.r}, ${hex.s})`);
-      drawHexAttackOutline(ctx, x, y);
-    });
-
-  ctx.restore();
 }
 
 function getTerrainColor(terrainType) {
@@ -123,11 +103,8 @@ function renderUnits(newScale = state.scale ?? scale, offset = state.offset ?? {
   const canvas = document.getElementById('game-canvas');
   const ctx = canvas.getContext('2d');
 
-  const offsetX = offset.x;
-  const offsetY = offset.y;
-
   ctx.save();
-  ctx.translate(offsetX, offsetY);
+  ctx.translate(offset.x, offset.y);
   ctx.scale(newScale, newScale);
   ctx.scale(1, squashFactor);
 
@@ -166,16 +143,17 @@ function drawUnit(ctx, x, y, unit) {
     ctx.arc(x, y, HEX_RADIUS / 2, 0, 2 * Math.PI);
   }
 
-  ctx.fillStyle = unit.owner === 'enemy' ? '#666' : (unit.color || '#000');
+  ctx.fillStyle = unit.owner === 'enemy' ? '#755' : (unit.color || '#000');
   ctx.fill();
-  ctx.stroke();
 
   if (unit.selected) {
     ctx.lineWidth = 3;
     ctx.strokeStyle = '#ff0';
     ctx.stroke();
+  } else {
     ctx.lineWidth = 1;
     ctx.strokeStyle = '#000';
+    ctx.stroke();
   }
 
   ctx.fillStyle = '#fff';
@@ -191,7 +169,7 @@ function highlightHexes(hexes) {
 }
 
 function highlightAttackHexes(hexes) {
-  state.attackHexes = hexes.map(h => ({ ...h, isAttack: true }));
+  state.attackHexes = hexes;
   renderMap(state.scale, state.offset);
 }
 

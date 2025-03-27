@@ -9,7 +9,6 @@ import { applyModules } from '../core/applyModules.js';
 import { setupActionFlags } from '../core/unitFlags.js';
 import { techTree } from '../core/techTree.js';
 import { ModuleDefinitions } from '../core/modules/allModulesRegistry.js';
-import { handlePostMovePhase } from '../core/gameStateMachine.js';
 import { highlightUnitContext, clearAllHighlights } from '../ui/highlightManager.js';
 
 
@@ -85,34 +84,34 @@ class Unit {
       console.log(`[MOVE BLOCKED] ${this.type} cannot move again`);
       return false;
     }
-
+  
     const allowed = this.getAvailableHexes();
     const allowedTarget = allowed.find(h => h.q === q && h.r === r && h.s === s);
     if (!allowedTarget) {
       console.log(`[MOVE BLOCKED] Target hex not in available move list`);
       return false;
     }
-
+  
     this.q = q;
     this.r = r;
     this.s = s;
     this.actions -= 1;
     this.moveUsed = true;
-
+  
     console.log(`🚶 [MOVE] ${this.type} moved to (${q},${r},${s}) | Remaining actions=${this.actions}`);
-
+  
     if (this.hasModule('Charge') && !this.chargeBonusGiven) {
       this.actions += 1;
       this.chargeBonusGiven = true;
       console.log(`⚡ [Charge] +1 action granted`);
     }
-
+  
     renderMap(state.scale, state.offset);
-    handlePostMovePhase(this);
-    highlightUnitContext(this);
-
+    evaluatePostAction(this, { type: 'move' });
+  
     return true;
   }
+  
 
   // остальная часть класса Unit и методы без изменений...
 

@@ -3,7 +3,7 @@
 import { renderUnits } from '../ui/render.js';
 import { updateEndTurnButton } from '../ui/uiControls.js';
 import { state } from '../core/state.js';
-import { handlePostAttackPhase } from './gameStateMachine.js';
+import { evaluatePostAction } from './gameStateMachine.js';
 import { hasModule } from '../mechanics/units.js';
 
 function performAttack(attacker, target) {
@@ -23,6 +23,7 @@ function performAttack(attacker, target) {
     lastAttackKilled = true;
   }
 
+  // ⚙️ Модули статуса
   if (hasModule(attacker, 'Corrupt')) {
     console.log('☣️ Corrupt: цель получает эффект разложения');
     target.status = target.status || [];
@@ -35,16 +36,19 @@ function performAttack(attacker, target) {
     target.status.push('frozen');
   }
 
-  // 🧠 FSM обработает всё (повторная атака, движение, завершение)
-  handlePostAttackPhase(attacker, lastAttackKilled);
-  console.log("🔥 FSM complete:", attacker.actions);
+  attacker.hasActed = true;
 
+  // 🧠 FSM возьмёт логику в свои руки
+  evaluatePostAction(attacker, {
+    type: 'attack',
+    killed: lastAttackKilled
+  });
+
+  console.log("🔥 FSM complete:", attacker.actions);
   state.hasActedThisTurn = true;
   renderUnits(state.scale, state.offset);
   updateEndTurnButton(true);
 }
-
-
 
 function canAttack(attacker, target) {
   if (!attacker || !target) return false;

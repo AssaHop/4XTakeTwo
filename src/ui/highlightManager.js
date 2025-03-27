@@ -1,31 +1,48 @@
-// ✅ highlightManager.js (улучшенная версия — скрытие moveHexes при moveUsed)
-
 import { highlightHexes, highlightAttackHexes } from './render.js';
 import { Unit } from '../mechanics/units.js';
 import { state } from '../core/state.js';
 
 export function updateHighlighting() {
   const unit = state.selectedUnit;
-  if (!unit || unit.actions <= 0) {
+  highlightUnitContext(unit);
+}
+
+export function highlightUnitContext(unit) {
+  if (!unit) {
     clearAllHighlights();
     return;
   }
-  const moveHexes = unit.moveUsed ? [] : unit.getAvailableHexes();
-  const attackHexes = Unit.getAttackableHexes(unit);
+
+  const canHighlightMoves = unit.actions > 0 && !unit.moveUsed;
+  const canHighlightAttacks =
+    unit.actions > 0 ||
+    (unit.canRepeatAttackOnKill && unit.lastAttackWasKill);
+
+  const moveHexes = canHighlightMoves ? unit.getAvailableHexes() : [];
+  const attackHexes = canHighlightAttacks ? Unit.getAttackableHexes(unit) : [];
+
+  console.log(`💡 [highlightUnitContext] ${unit.type} actions=${unit.actions} moveUsed=${unit.moveUsed} lastKill=${unit.lastAttackWasKill}`);
+  console.log('📍 moveHexes:', moveHexes.map(h => `(${h.q},${h.r},${h.s})`));
+  console.log('📍 attackHexes:', attackHexes.map(h => `(${h.q},${h.r},${h.s})`));
+
   state.highlightedHexes = moveHexes;
   state.attackHexes = attackHexes;
+
   highlightHexes(moveHexes);
   highlightAttackHexes(attackHexes);
 }
 
-export function highlightOnlyAttacks() {
-  const unit = state.selectedUnit;
-  if (!unit || unit.actions <= 0) {
+export function highlightOnlyAttacks(unit = state.selectedUnit) {
+  if (!unit) {
     clearAllHighlights();
     return;
   }
+
   const attackHexes = Unit.getAttackableHexes(unit);
+  state.highlightHexes = [];
   state.attackHexes = attackHexes;
+
+  highlightHexes([]);
   highlightAttackHexes(attackHexes);
 }
 
@@ -44,26 +61,4 @@ export function clearMoveHighlights() {
 export function clearAttackHighlights() {
   state.attackHexes = [];
   highlightAttackHexes([]);
-}
-
-export function highlightUnitContext(unit) {
-  console.log(`💡 [highlightUnitContext] called for ${unit?.type}, actions=${unit?.actions}`);
-
-  if (!unit || unit.actions <= 0) {
-    console.log('🔕 [highlightUnitContext] Unit inactive or undefined — clearing highlights');
-    clearAllHighlights();
-    return;
-  }
-
-  const moveHexes = unit.moveUsed ? [] : unit.getAvailableHexes();
-  const attackHexes = Unit.getAttackableHexes(unit);
-
-  console.log('📍 moveHexes:', moveHexes.map(h => `(${h.q},${h.r},${h.s})`));
-  console.log('📍 attackHexes:', attackHexes.map(h => `(${h.q},${h.r},${h.s})`));
-
-  state.highlightedHexes = moveHexes;
-  state.attackHexes = attackHexes;
-
-  highlightHexes(moveHexes);
-  highlightAttackHexes(attackHexes);
 }

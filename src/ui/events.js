@@ -1,13 +1,11 @@
 import { selectUnit, generateUnits, Unit } from '../mechanics/units.js';
 import { pixelToCube, cubeRound } from '../world/map.js';
 import { state } from '../core/state.js';
-import { GameState, transitionTo, handlePostMovePhase } from '../core/gameStateMachine.js';
+import { GameState, transitionTo, evaluatePostAction } from '../core/gameStateMachine.js';
 import { setupEndTurnButton, updateEndTurnButton } from './uiControls.js';
 import { renderUnits } from './render.js';
-import { highlightHexes, highlightAttackHexes }  from './render.js';
 import { highlightUnitContext } from './highlightManager.js';
 import { performAttack } from '../core/combatLogic.js';
-
 
 const squashFactor = 0.7;
 
@@ -35,7 +33,7 @@ function handleCanvasClick(event) {
 
   const clickedUnit = state.units.find(unit => cubeEqualsWithEpsilon(unit, { q, r, s }));
 
-  // 👇 Attack path
+  // 👇 ATTACK
   if (clickedUnit) {
     if (clickedUnit.owner !== 'player1') {
       const selected = state.selectedUnit;
@@ -43,25 +41,14 @@ function handleCanvasClick(event) {
         const attackTargets = Unit.getAttackableHexes(selected);
         const validTarget = attackTargets.find(t => t.q === q && t.r === r && t.s === s);
         if (validTarget) {
-          const success = performAttack(selected, clickedUnit);
-          console.log(`🔫 Attack: ${success ? 'Success' : 'Failed'}`);
-          if (success) {
-            selected.pendingChargeAttack = false;
-            state.hasActedThisTurn = true;
-            updateEndTurnButton(true);
-            transitionTo(GameState.UNIT_ATTACKING);
-            setTimeout(() => {
-              transitionTo(GameState.UNIT_SELECTED);
-              highlightUnitContext(selected);
-            }, 150);
-          }
+          performAttack(selected, clickedUnit); // FSM triggered inside
           return;
         }
       }
-      return; // enemy click fallback
+      return;
     }
 
-    // ✅ Select friendly unit
+    // ✅ SELECT FRIENDLY
     if (clickedUnit.actions > 0) {
       selectUnit(clickedUnit);
       transitionTo(GameState.UNIT_SELECTED);
@@ -71,7 +58,7 @@ function handleCanvasClick(event) {
     return;
   }
 
-  // 👇 Movement path
+  // 👇 MOVE
   const selected = state.selectedUnit;
   if (selected && selected.actions > 0) {
     const available = selected.getAvailableHexes();
@@ -81,8 +68,7 @@ function handleCanvasClick(event) {
       if (moved) {
         console.log(`🚶 Unit moved to: (${q}, ${r}, ${s})`);
         renderUnits();
-        transitionTo(GameState.UNIT_MOVING);
-        handlePostMovePhase(selected);
+        evaluatePostAction(selected, { type: 'move' }); // FSM takes over
         return;
       }
     }

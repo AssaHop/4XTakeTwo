@@ -1,9 +1,11 @@
 const state = {
     map: [],
     units: [],
-    selectedUnit: null, // Текущий выбранный юнит
-    highlightedHexes: [], // Подсвеченные гексы для доступного перемещения
+    selectedUnit: null,
+    highlightedHexes: [],
+    attackHexes: [],
     hasActedThisTurn: false,
-};
+    phaseHistory: [], // 🔄 добавить для DSL переходов
+  };
 
 export { state };
