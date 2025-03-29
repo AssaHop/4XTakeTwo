@@ -13,15 +13,15 @@ export function highlightUnitContext(unit) {
     return;
   }
 
-  const canHighlightMoves = unit.actions > 0 && !unit.moveUsed;
+  const canHighlightMoves = unit.canMove;
   const canHighlightAttacks =
-    unit.actions > 0 ||
+    unit.canAct ||
     (unit.canRepeatAttackOnKill && unit.lastAttackWasKill);
 
   const moveHexes = canHighlightMoves ? unit.getAvailableHexes() : [];
   const attackHexes = canHighlightAttacks ? Unit.getAttackableHexes(unit) : [];
 
-  console.log(`💡 [highlightUnitContext] ${unit.type} actions=${unit.actions} moveUsed=${unit.moveUsed} lastKill=${unit.lastAttackWasKill}`);
+  console.log(`💡 [highlightUnitContext] ${unit.type} move=${unit.canMove} act=${unit.canAct} lastKill=${unit.lastAttackWasKill}`);
   console.log('📍 moveHexes:', moveHexes.map(h => `(${h.q},${h.r},${h.s})`));
   console.log('📍 attackHexes:', attackHexes.map(h => `(${h.q},${h.r},${h.s})`));
 

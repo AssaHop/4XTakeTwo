@@ -37,7 +37,7 @@ function handleCanvasClick(event) {
   if (clickedUnit) {
     if (clickedUnit.owner !== 'player1') {
       const selected = state.selectedUnit;
-      if (selected && selected.actions > 0) {
+      if (selected && selected.canAct) {
         const attackTargets = Unit.getAttackableHexes(selected);
         const validTarget = attackTargets.find(t => t.q === q && t.r === r && t.s === s);
         if (validTarget) {
@@ -49,7 +49,8 @@ function handleCanvasClick(event) {
     }
 
     // ✅ SELECT FRIENDLY
-    if (clickedUnit.actions > 0) {
+    const canSelect = clickedUnit.canAct || clickedUnit.canMove || (clickedUnit.canRepeatAttackOnKill && clickedUnit.lastAttackWasKill);
+    if (canSelect) {
       selectUnit(clickedUnit);
       transitionTo(GameState.UNIT_SELECTED);
     } else {
@@ -60,7 +61,7 @@ function handleCanvasClick(event) {
 
   // 👇 MOVE
   const selected = state.selectedUnit;
-  if (selected && selected.actions > 0) {
+  if (selected && selected.canMove) {
     const available = selected.getAvailableHexes();
     const inRange = available.find(h => cubeEqualsWithEpsilon(h, { q, r, s }));
     if (inRange) {

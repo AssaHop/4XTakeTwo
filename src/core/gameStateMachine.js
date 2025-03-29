@@ -41,30 +41,17 @@ function evaluatePostAction(unit, { type, killed = false }) {
 
   // ————— ATTACK LOGIC —————
   if (type === 'attack') {
-    unit.hasActed = true;
-
-    // Percy: Повторная атака после убийства
-    if (killed && unit.canRepeatAttackOnKill) {
-      console.log('🔁 [Percy Triggered] Repeat attack granted');
-      unit.actions = 1;
-      unit.moveUsed = true;
-      unit.chargeBonusGiven = false;
-      unit.fleeBonusGiven = false;
+    // Percy — повторная атака (логика уже в combatLogic)
+    if (unit.canAct) {
+      console.log('🔁 [Percy Active] Awaiting repeat attack...');
       transitionTo(GameState.UNIT_SELECTED);
       highlightOnlyAttacks(unit);
       return;
     }
 
-    // Flee: Можно двигаться после атаки
-    if (
-      unit.canMoveAfterAttack &&
-      unit.hasActed &&
-      !unit.moveUsed &&
-      !unit.fleeBonusGiven
-    ) {
-      console.log('🏃 [Flee Triggered] Move after attack allowed');
-      unit.actions = 1;
-      unit.fleeBonusGiven = true;
+    // Flee — движение после атаки
+    if (unit.canMove) {
+      console.log('🏃 [Flee Active] Awaiting post-attack move...');
       transitionTo(GameState.UNIT_SELECTED);
       highlightUnitContext(unit);
       return;
@@ -76,8 +63,11 @@ function evaluatePostAction(unit, { type, killed = false }) {
     clearMoveHighlights();
     clearAttackHighlights();
 
-    if (unit.actions > 0 && unit.canAttackAfterMove) {
-      console.log('⚔️ [Charge Ready] Attack after move allowed');
+    // Charge — модуль: атака после движения
+    if (unit.hasModule?.('Charge') && !unit.moveBonusUsed) {
+      unit.canAct = true;
+      unit.moveBonusUsed = true;
+      console.log('⚡ [Charge Triggered] Attack granted after move');
       transitionTo(GameState.UNIT_SELECTED);
       highlightUnitContext(unit);
       return;
@@ -85,17 +75,20 @@ function evaluatePostAction(unit, { type, killed = false }) {
   }
 
   // ————— DEFAULT / CLEANUP —————
-  console.log('🛑 [PostAction] Ending unit phase');
-  unit.actions = 0;
-  unit.hasActed = false;
-  unit.chargeBonusGiven = false;
-  unit.fleeBonusGiven = false;
-  unit.deselect?.();
-  state.selectedUnit = null;
-  state.hasActedThisTurn = true;
-  updateEndTurnButton();
-  transitionTo(GameState.IDLE);
-  clearAllHighlights();
+  const unitDone = !unit.canMove && !unit.canAct;
+
+  if (unitDone) {
+    console.log('🛑 [PostAction] Ending unit phase');
+    unit.deselect?.();
+    state.selectedUnit = null;
+    state.hasActedThisTurn = true;
+    updateEndTurnButton();
+    transitionTo(GameState.IDLE);
+    clearAllHighlights();
+  } else {
+    transitionTo(GameState.UNIT_SELECTED);
+    highlightUnitContext(unit);
+  }
 }
 
 export {

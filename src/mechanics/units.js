@@ -1,4 +1,4 @@
-// ✅ units.js (обновлён — защита от повторного движения после moveUsed)
+// ✅ units.js (очищен — логика Charge вынесена в FSM)
 
 import { renderUnits, renderMap } from '../ui/render.js';
 import { state } from '../core/state.js';
@@ -10,7 +10,7 @@ import { setupActionFlags } from '../core/unitFlags.js';
 import { techTree } from '../core/techTree.js';
 import { ModuleDefinitions } from '../core/modules/allModulesRegistry.js';
 import { highlightUnitContext, clearAllHighlights } from '../ui/highlightManager.js';
-
+import { evaluatePostAction } from '../core/gameStateMachine.js';
 
 class Unit {
   constructor(q, r, s, type, owner, options = {}) {
@@ -19,7 +19,6 @@ class Unit {
     this.s = s;
     this.type = type;
     this.owner = owner;
-    this.actions = 1;
     this.selected = false;
 
     this.hp = options.hp || 3;
@@ -31,9 +30,11 @@ class Unit {
     this.weType = options.weType || null;
     this.modules = options.modules || [];
 
-    this.chargeBonusGiven = false;
-    this.moveUsed = false;
-    this.fleeBonusGiven = false;
+    // 🔄 Флаги FSM
+    this.canMove = true;
+    this.canAct = true;
+    this.moveBonusUsed = false;
+    this.actBonusUsed = false;
 
     this.recalculateMobility();
     applyModules(this);
@@ -80,82 +81,71 @@ class Unit {
   }
 
   moveTo(q, r, s) {
-    if (this.actions <= 0 || this.moveUsed) {
+    if (!this.canMove) {
       console.log(`[MOVE BLOCKED] ${this.type} cannot move again`);
       return false;
     }
-  
+
     const allowed = this.getAvailableHexes();
     const allowedTarget = allowed.find(h => h.q === q && h.r === r && h.s === s);
     if (!allowedTarget) {
       console.log(`[MOVE BLOCKED] Target hex not in available move list`);
       return false;
     }
-  
+
     this.q = q;
     this.r = r;
     this.s = s;
-    this.actions -= 1;
-    this.moveUsed = true;
-  
-    console.log(`🚶 [MOVE] ${this.type} moved to (${q},${r},${s}) | Remaining actions=${this.actions}`);
-  
-    if (this.hasModule('Charge') && !this.chargeBonusGiven) {
-      this.actions += 1;
-      this.chargeBonusGiven = true;
-      console.log(`⚡ [Charge] +1 action granted`);
-    }
-  
+    this.canMove = false;
+    this.canAct = false;
+
+    console.log(`🚶 [MOVE] ${this.type} moved to (${q},${r},${s})`);
+
     renderMap(state.scale, state.offset);
     evaluatePostAction(this, { type: 'move' });
-  
+
     return true;
   }
-  
-
-  // остальная часть класса Unit и методы без изменений...
-
 
   getAvailableHexes() {
     const visited = new Set();
     const result = [];
     const frontier = [{ q: this.q, r: this.r, s: this.s, dist: 0 }];
-  
+
     console.log(`🔍 [DEBUG] getAvailableHexes: Unit=${this.type} at (${this.q},${this.r},${this.s}) moRange=${this.moRange}`);
-  
+
     while (frontier.length > 0) {
       const current = frontier.shift();
       const key = `${current.q},${current.r},${current.s}`;
       if (visited.has(key)) continue;
       visited.add(key);
-  
+
       const cell = state.map.flat().find(c => c.q === current.q && c.r === current.r && c.s === current.s);
-  
+
       if (!cell) {
         console.warn(`⚠️ [No Cell] (${current.q},${current.r},${current.s}) not found on map`);
         continue;
       }
-  
+
       const allowed = this.moveTerrain || [];
+      const terrain = cell.terrainType;
 
-const terrain = cell.terrainType;
+      const blocked =
+        (terrain === 'deep' && !allowed.includes('Navy')) ||
+        (terrain === 'surf' && !(allowed.includes('Sail') || allowed.includes('Navy'))) ||
+        (terrain === 'land' && !allowed.includes('Land')) ||
+        (terrain === 'void' && !allowed.includes('Air')) ||
+        (terrain === 'mount' && !allowed.includes('Climb'));
 
-const blocked =
-  (terrain === 'deep' && !allowed.includes('Navy')) ||
-  (terrain === 'surf' && !(allowed.includes('Sail') || allowed.includes('Navy'))) ||
-  (terrain === 'land' && !allowed.includes('Land')) ||
-  (terrain === 'void' && !allowed.includes('Air')) ||
-  (terrain === 'mount' && !allowed.includes('Climb'));
+      if (blocked) {
+        console.log(`🚫 [Terrain Blocked] ${terrain} at (${cell.q},${cell.r},${cell.s})`);
+        continue;
+      }
 
-if (blocked) {
-  console.log(`🚫 [Terrain Blocked] ${terrain} at (${cell.q},${cell.r},${cell.s})`);
-  continue;
-}
-  
       if (current.dist > 0) {
         result.push({ q: current.q, r: current.r, s: current.s });
       }
-  
+
       if (current.dist < this.moRange) {
         const neighbors = [
           { dq: 1, dr: -1, ds: 0 }, { dq: 1, dr: 0, ds: -1 }, { dq: 0, dr: 1, ds: -1 },
@@ -166,7 +156,7 @@ if (blocked) {
         }
       }
     }
-  
+
     console.log(`✅ [HEXES RESULT] ${result.length} reachable tiles for ${this.type}`);
     return result;
   }
@@ -190,11 +180,12 @@ if (blocked) {
 
   select() { this.selected = true; }
   deselect() { this.selected = false; }
+
   resetActions() {
-    this.actions = 1;
-    this.moveUsed = false;
-    this.chargeBonusGiven = false;
-    this.fleeBonusGiven = false;
+    this.canMove = true;
+    this.canAct = true;
+    this.moveBonusUsed = false;
+    this.actBonusUsed = false;
   }
 }
 
@@ -227,14 +218,13 @@ function addUnit(q, r, s, type, owner) {
   console.log(`✅ Unit ADDED: ${type} at (${q}, ${r}, ${s})`);
 }
 
-
 function generateUnits(unitsList) {
   units.length = 0;
   for (const unit of unitsList) {
     addUnit(unit.q, unit.r, unit.s, unit.type, unit.owner);
   }
   console.log('[DEBUG] All units on map after spawn:');
-  state.units.forEach(u => console.log(`${u.type} actions=${u.actions}`));
+  state.units.forEach(u => console.log(`${u.type} actions=?`));
 }
 
 function selectUnit(unit) {
@@ -242,14 +232,11 @@ function selectUnit(unit) {
 
   const hasMoves = unit.getAvailableHexes().length > 0;
   const hasAttacks = Unit.getAttackableHexes(unit).length > 0;
-
-  const isOutOfActions = unit.actions <= 0;
   const isPercyReady = unit.canRepeatAttackOnKill && unit.lastAttackWasKill && hasAttacks;
 
   const isInactive =
-    (!isPercyReady && isOutOfActions) ||                     // Нет действий и не Percy
-    (unit.moveUsed && !hasAttacks) ||                        // Двигался и нечего атаковать
-    (!hasMoves && !hasAttacks);                              // Вообще нечего делать
+    (!unit.canAct && !unit.canMove && !isPercyReady) ||
+    (!hasMoves && !hasAttacks);
 
   if (isInactive) {
     console.warn(`⚠️ [Guard] ${unit.type} cannot act – skip selection`);
@@ -260,18 +247,16 @@ function selectUnit(unit) {
   unit.select();
   state.selectedUnit = unit;
   highlightUnitContext(unit);
-  console.log(`[SELECT] Unit ${unit.type} selected → actions=${unit.actions}, moRange=${unit.moRange}, atRange=${unit.atRange}`);
+  console.log(`[SELECT] Unit ${unit.type} selected → move=${unit.canMove}, act=${unit.canAct}, moRange=${unit.moRange}, atRange=${unit.atRange}`);
   renderUnits();
 }
-
-
 
 function resetUnitsActions() {
   units.forEach(unit => unit.resetActions());
 }
+
 function hasModule(unit, modName) {
   return Array.isArray(unit.modules) && unit.modules.includes(modName);
 }
-
 
 export { Unit, units, addUnit, generateUnits, selectUnit, resetUnitsActions, hasModule };
