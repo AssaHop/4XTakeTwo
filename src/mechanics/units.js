@@ -1,4 +1,4 @@
-// ✅ units.js (очищен — логика Charge вынесена в FSM)
+// ✅ units.js (обновлён — корректная навигация через moveTerrain + Air)
 
 import { renderUnits, renderMap } from '../ui/render.js';
 import { state } from '../core/state.js';
@@ -65,19 +65,7 @@ class Unit {
   }
 
   recalculateMobility() {
-    if (this.modules.includes('Air')) {
-      this.moveTerrain = ['surf', 'water', 'deep', 'land', 'hill', 'mount'];
-    } else if (this.modules.includes('Dual')) {
-      this.moveTerrain = ['surf', 'land'];
-    } else if (this.modules.includes('Sail')) {
-      this.moveTerrain = ['surf', 'water', 'deep'];
-      this.moRange = Math.max(1, this.moRange - 1);
-    } else if (this.modules.includes('Navy')) {
-      this.moveTerrain = ['water', 'deep'];
-      this.moRange += 1;
-    } else {
-      this.moveTerrain = ['surf', 'land', 'hill'];
-    }
+    this.moveTerrain = ['surf', 'land', 'hill'];
   }
 
   moveTo(q, r, s) {
@@ -127,15 +115,9 @@ class Unit {
         continue;
       }
 
-      const allowed = this.moveTerrain || [];
       const terrain = cell.terrainType;
-
-      const blocked =
-        (terrain === 'deep' && !allowed.includes('Navy')) ||
-        (terrain === 'surf' && !(allowed.includes('Sail') || allowed.includes('Navy'))) ||
-        (terrain === 'land' && !allowed.includes('Land')) ||
-        (terrain === 'void' && !allowed.includes('Air')) ||
-        (terrain === 'mount' && !allowed.includes('Climb'));
+      const isAllowed = this.moveTerrain?.includes(terrain);
+      const blocked = !isAllowed && !this.ignoresObstacles;
 
       if (blocked) {
         console.log(`🚫 [Terrain Blocked] ${terrain} at (${cell.q},${cell.r},${cell.s})`);
@@ -168,7 +150,7 @@ class Unit {
         const ds = -dq - dr;
         const q = unit.q + dq;
         const r = unit.r + dr;
-        const s = unit.s + ds;
+        const s = -q - r;
         const target = state.units.find(u => u.q === q && u.r === r && u.s === s && u.owner !== unit.owner);
         if (target && hasLineOfSight(unit, target, state.map, unit.weType)) {
           targets.push({ q, r, s, isAttack: true });
@@ -199,11 +181,7 @@ function addUnit(q, r, s, type, owner) {
   const moveSet = ClassTemplates[type]?.moveTerrain || [];
   const terrain = cell?.terrainType;
 
-  const isBlockedSpawn =
-    (terrain === 'deep' && !moveSet.includes('Navy')) ||
-    (terrain === 'surf' && !(moveSet.includes('Sail') || moveSet.includes('Navy'))) ||
-    (terrain === 'land' && !moveSet.includes('Land')) ||
-    (terrain === 'void' && !moveSet.includes('Air'));
+  const isBlockedSpawn = !moveSet.includes(terrain);
 
   if (isBlockedSpawn) {
     console.warn(`❌ Cannot spawn ${type} on ${terrain} (${q}, ${r}, ${s})`);
