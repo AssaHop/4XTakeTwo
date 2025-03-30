@@ -1,5 +1,3 @@
-// 📂 core/mechanics/units.js
-
 import { renderUnits, renderMap } from '../ui/render.js';
 import { state } from '../core/state.js';
 import { updateEndTurnButton } from '../ui/uiControls.js';
@@ -9,7 +7,8 @@ import { applyModules } from '../core/applyModules.js';
 import { setupActionFlags } from '../core/unitFlags.js';
 import { techTree } from '../core/techTree.js';
 import { ModuleDefinitions } from '../core/modules/allModulesRegistry.js';
-import { highlightUnitContext, clearAllHighlights } from '../ui/highlightManager.js';
+import { WeaponTypes } from '../core/modules/weaponTypes.js';
+import { highlightUnitContext } from '../ui/highlightManager.js';
 import { evaluatePostAction } from '../core/gameStateMachine.js';
 import { canUnitSpawnOnHex } from '../utils/spawnUtils.js';
 
@@ -26,20 +25,26 @@ class Unit {
     this.maxHp = options.hp || this.hp;
     this.moRange = options.moRange || 1;
     this.viRange = options.viRange || 3;
-    this.atRange = options.atRange || 1;
     this.atDamage = options.atDamage || 1;
     this.weType = options.weType || null;
     this.modules = options.modules || [];
 
-    // 🔄 Флаги FSM
+    const weaponProfile = WeaponTypes[this.weType];
+    if (weaponProfile) {
+      this.atRange = weaponProfile.range;
+      this.weaponProfile = weaponProfile;
+    } else {
+      this.atRange = options.atRange || 1;
+    }
+
     this.canMove = true;
     this.canAct = true;
     this.moveBonusUsed = false;
     this.actBonusUsed = false;
 
-    applyModules(this);           // 🧠 сначала применяем модули
-    this.recalculateMobility();   // 🧭 теперь модули на месте, можно расширять moveTerrain
-    setupActionFlags(this);       // 🎯 FSM-флаги
+    applyModules(this);
+    this.recalculateMobility();
+    setupActionFlags(this);
   }
 
   hasModule(modName) {
@@ -108,8 +113,6 @@ class Unit {
     const result = [];
     const frontier = [{ q: this.q, r: this.r, s: this.s, dist: 0 }];
 
-    console.log(`🔍 [DEBUG] getAvailableHexes: Unit=${this.type} at (${this.q},${this.r},${this.s}) moRange=${this.moRange}`);
-
     while (frontier.length > 0) {
       const current = frontier.shift();
       const key = `${current.q},${current.r},${current.s}`;
@@ -117,20 +120,13 @@ class Unit {
       visited.add(key);
 
       const cell = state.map.flat().find(c => c.q === current.q && c.r === current.r && c.s === current.s);
-      if (!cell) {
-        console.warn(`⚠️ [No Cell] (${current.q},${current.r},${current.s}) not found on map`);
-        continue;
-      }
+      if (!cell) continue;
 
       const terrain = cell.terrainType;
       const isAllowed = this.moveTerrain?.includes(terrain);
       const blocked = !isAllowed && !this.ignoresObstacles;
 
-      if (blocked) {
-        console.log(`🚫 [Terrain Blocked] ${terrain} at (${cell.q},${cell.r},${cell.s})`);
-        continue;
-      }
-
+      if (blocked) continue;
       if (current.dist > 0) result.push({ q: current.q, r: current.r, s: current.s });
 
       if (current.dist < this.moRange) {
@@ -144,26 +140,51 @@ class Unit {
       }
     }
 
-    console.log(`✅ [HEXES RESULT] ${result.length} reachable tiles for ${this.type}`);
     return result;
   }
 
-  static getAttackableHexes(unit) {
-    const targets = [];
-    for (let dq = -unit.atRange; dq <= unit.atRange; dq++) {
-      for (let dr = Math.max(-unit.atRange, -dq - unit.atRange); dr <= Math.min(unit.atRange, -dq + unit.atRange); dr++) {
+static getAttackableHexes(unit) {
+  const targets = new Set();
+  const weaponTypes = Array.isArray(unit.weType) ? unit.weType : [unit.weType];
+
+  for (let weapType of weaponTypes) {
+    const config = WeaponTypes[weapType];
+    if (!config) continue;
+
+    const range = config.range || unit.atRange;
+
+    for (let dq = -range; dq <= range; dq++) {
+      for (
+        let dr = Math.max(-range, -dq - range);
+        dr <= Math.min(range, -dq + range);
+        dr++
+      ) {
         const ds = -dq - dr;
         const q = unit.q + dq;
         const r = unit.r + dr;
         const s = -q - r;
-        const target = state.units.find(u => u.q === q && u.r === r && u.s === s && u.owner !== unit.owner);
-        if (target && hasLineOfSight(unit, target, state.map, unit.weType)) {
-          targets.push({ q, r, s, isAttack: true });
+
+        const target = state.units.find(
+          (u) => u.q === q && u.r === r && u.s === s && u.owner !== unit.owner
+        );
+        if (!target) continue;
+
+        if (hasLineOfSight(unit, target, state.map, weapType)) {
+          targets.add(`${q},${r},${s}`);
         }
       }
     }
-    return targets;
   }
+
+  // Конвертируем в массив объектов с координатами
+  return [...targets].map(str => {
+    const [q, r, s] = str.split(',').map(Number);
+    return { q, r, s, isAttack: true };
+  });
+}
+
+  
+  
 
   select() { this.selected = true; }
   deselect() { this.selected = false; }

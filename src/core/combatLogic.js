@@ -5,6 +5,13 @@ import { updateEndTurnButton } from '../ui/uiControls.js';
 import { state } from '../core/state.js';
 import { evaluatePostAction } from './gameStateMachine.js';
 import { hasModule } from '../mechanics/units.js';
+import { WeaponTypes } from './modules/weaponTypes.js';
+
+function getWeaponRange(unit) {
+  const weapons = Array.isArray(unit.weType) ? unit.weType : [unit.weType];
+  const ranges = weapons.map(w => WeaponTypes[w]?.range || 0);
+  return Math.max(...ranges, unit.atRange || 1);
+}
 
 function performAttack(attacker, target) {
   if (!attacker?.canAct) {
@@ -26,7 +33,7 @@ function performAttack(attacker, target) {
     killed = true;
   }
 
-  // ⚙️ Модули эффектов
+  // ⚙️ Эффекты модулей
   if (hasModule(attacker, 'Corrupt')) {
     console.log('☣️ Corrupt: цель получает эффект разложения');
     target.status = target.status || [];
@@ -39,46 +46,36 @@ function performAttack(attacker, target) {
     target.status.push('frozen');
   }
 
-  // 🔁 Percy: доп. атака только если убил
   if (killed && hasModule(attacker, 'Percy') && !attacker.actBonusUsed) {
     attacker.canAct = true;
     attacker.actBonusUsed = true;
     console.log('🔁 [Percy Triggered] repeat attack granted');
   }
 
-  // 🏃 Flee: можно двигаться только если ИЗНАЧАЛЬНО было canAct=true
   if (!killed && hasModule(attacker, 'Flee') && !attacker.actBonusUsed) {
     attacker.canMove = true;
     attacker.actBonusUsed = true;
     console.log('🏃 [Flee Triggered] move after attack allowed');
   } else {
-    attacker.canMove = false; // default case — не должен больше двигаться
+    attacker.canMove = false;
   }
 
-  evaluatePostAction(attacker, {
-    type: 'attack',
-    killed: killed
-  });
-
+  evaluatePostAction(attacker, { type: 'attack', killed });
   state.hasActedThisTurn = true;
   renderUnits(state.scale, state.offset);
   updateEndTurnButton(true);
 }
 
 function canAttack(attacker, target) {
-  if (!attacker || !target) return false;
-  if (!attacker.canAct) return false;
-  if (attacker.owner === target.owner) return false;
+  if (!attacker || !target || !attacker.canAct || attacker.owner === target.owner) return false;
+
+  const range = getWeaponRange(attacker);
 
   const dx = Math.abs(attacker.q - target.q);
   const dy = Math.abs(attacker.r - target.r);
   const dz = Math.abs(attacker.s - target.s);
 
-  return (
-    dx <= attacker.atRange &&
-    dy <= attacker.atRange &&
-    dz <= attacker.atRange
-  );
+  return dx <= range && dy <= range && dz <= range;
 }
 
 export { performAttack, canAttack };

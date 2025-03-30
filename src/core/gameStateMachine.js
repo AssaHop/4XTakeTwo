@@ -1,5 +1,3 @@
-// 📂 core/gameStateMachine.js
-
 import { state } from './state.js';
 import { updateEndTurnButton } from '../ui/uiControls.js';
 import {
@@ -41,17 +39,30 @@ function evaluatePostAction(unit, { type, killed = false }) {
 
   // ————— ATTACK LOGIC —————
   if (type === 'attack') {
-    // Percy — повторная атака (логика уже в combatLogic)
-    if (unit.canAct) {
-      console.log('🔁 [Percy Active] Awaiting repeat attack...');
+    // 🔁 Percy: доп. атака (цепочка)
+    if (unit.hasModule?.('Percy') && killed) {
+      unit.canAct = true;
+
+      // ❌ Flee отключается после Percy-чейн
+      unit.canMove = false;
+      unit.actBonusUsed = true;
+      unit.moveBonusUsed = true;
+
+      console.log('🔁 [Percy Triggered] Repeat attack granted (chain)');
       transitionTo(GameState.UNIT_SELECTED);
       highlightOnlyAttacks(unit);
       return;
     }
 
-    // Flee — движение после атаки
-    if (unit.canMove) {
-      console.log('🏃 [Flee Active] Awaiting post-attack move...');
+    // 🏃 Flee — движение после атаки
+    if (
+      unit.hasModule?.('Flee') &&
+      !unit.actBonusUsed &&
+      type === 'attack'
+    ) {
+      unit.canMove = true;
+      unit.actBonusUsed = true;
+      console.log('🏃 [Flee Triggered] Move after attack granted');
       transitionTo(GameState.UNIT_SELECTED);
       highlightUnitContext(unit);
       return;
@@ -63,8 +74,11 @@ function evaluatePostAction(unit, { type, killed = false }) {
     clearMoveHighlights();
     clearAttackHighlights();
 
-    // Charge — модуль: атака после движения
-    if (unit.hasModule?.('Charge') && !unit.moveBonusUsed) {
+    // ⚡ Charge — модуль: атака после движения
+    if (
+      unit.hasModule?.('Charge') &&
+      !unit.moveBonusUsed
+    ) {
       unit.canAct = true;
       unit.moveBonusUsed = true;
       console.log('⚡ [Charge Triggered] Attack granted after move');
