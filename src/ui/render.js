@@ -143,7 +143,7 @@ function drawUnit(ctx, x, y, unit) {
     ctx.arc(x, y, HEX_RADIUS / 2, 0, 2 * Math.PI);
   }
 
-  ctx.fillStyle = unit.owner === 'enemy' ? '#755' : (unit.color || '#000');
+  ctx.fillStyle = unit.color
   ctx.fill();
 
   if (unit.selected) {

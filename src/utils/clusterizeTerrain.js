@@ -4,9 +4,9 @@ import { getTile, getNeighbors } from '../world/map.js';
 
 export function generateTerrainClusters(mapTiles, options = {}) {
   const {
-    seedCount = 15,
-    growIterations = 2,
-    growChance = 0.3
+    seedCount = 7,
+    growIterations = 3,
+    growChance = 0.5
   } = options;
 
   const availableTerrains = ['land', 'hill', 'mount', 'surf', 'water'];

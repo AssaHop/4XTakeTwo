@@ -4,20 +4,20 @@ export const terrainPresets = {
     default: {
       profileName: "Default Island",
       terrainDistribution: {
-        surf: { min: 30, max: 60 },
+        surf: { min: 30, max: 40 },
         water: { min: 20, max: 50 },
         deep: { min: 10, max: 40 },
         land: { min: 10, max: 15 },
         hill: { min: 5, max: 10 },
-        mount: { min: 2, max: 5 },
-        peak: { min: 1, max: 4 }
+        mount: { min: 24, max: 50 },
+        peak: { min: 2, max: 8 }
       },
       spawnRules: {
-        surf: { condition: "land,hill", requiredNeighbors: 1, probability: 0.8, prohibitedNeighbors: "peak,deep" },
-        land: { condition: "land,hill", requiredNeighbors: 2, probability: 0.8 },
-        hill: { condition: "land,hill", requiredNeighbors: 2, probability: 0.8 },
-        mount: { condition: "land,hill,mount", requiredNeighbors: 2, prohibitedNeighbors: "surf", probability: 0.5 },
-        peak: { condition: "mount", requiredNeighbors: 3 },
+        surf: { condition: "land,hill,mount", requiredNeighbors: 1, probability: 0.9, prohibitedNeighbors: "peak,deep" },
+        land: { condition: "surf,land,hill", requiredNeighbors: 2, probability: 0.8 },
+        hill: { condition: "land,hill,surf", requiredNeighbors: 2, probability: 0.5 },
+        mount: { condition: "land,hill,mount", requiredNeighbors: 2, prohibitedNeighbors: "surf", probability: 0.7 },
+        peak: { condition: "mount", requiredNeighbors: 2 },
         deep: { condition: "water", prohibitedNeighbors: "surf" },
         water: { condition: "surf,land", probability: 0.7 }
       },
@@ -32,7 +32,7 @@ export const terrainPresets = {
     archipelago: {
       profileName: "Small Archipelago",
       terrainDistribution: {
-        surf: { min: 60, max: 80 },
+        surf: { min: 40, max: 80 },
         water: { min: 30, max: 50 },
         deep: { min: 20, max: 30 },
         land: { min: 5, max: 10 },

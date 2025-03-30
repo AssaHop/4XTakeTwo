@@ -1,4 +1,4 @@
-// ✅ units.js (обновлён — корректная навигация через moveTerrain + Air)
+// 📂 core/mechanics/units.js
 
 import { renderUnits, renderMap } from '../ui/render.js';
 import { state } from '../core/state.js';
@@ -11,6 +11,7 @@ import { techTree } from '../core/techTree.js';
 import { ModuleDefinitions } from '../core/modules/allModulesRegistry.js';
 import { highlightUnitContext, clearAllHighlights } from '../ui/highlightManager.js';
 import { evaluatePostAction } from '../core/gameStateMachine.js';
+import { canUnitSpawnOnHex } from '../utils/spawnUtils.js';
 
 class Unit {
   constructor(q, r, s, type, owner, options = {}) {
@@ -36,9 +37,9 @@ class Unit {
     this.moveBonusUsed = false;
     this.actBonusUsed = false;
 
-    this.recalculateMobility();
-    applyModules(this);
-    setupActionFlags(this);
+    applyModules(this);           // 🧠 сначала применяем модули
+    this.recalculateMobility();   // 🧭 теперь модули на месте, можно расширять moveTerrain
+    setupActionFlags(this);       // 🎯 FSM-флаги
   }
 
   hasModule(modName) {
@@ -49,6 +50,7 @@ class Unit {
     if (!this.hasModule(modName)) {
       this.modules.push(modName);
       applyModules(this);
+      this.recalculateMobility();
       setupActionFlags(this);
     }
   }
@@ -65,7 +67,15 @@ class Unit {
   }
 
   recalculateMobility() {
-    this.moveTerrain = ['surf', 'land', 'hill'];
+    if (!this.moveTerrain) this.moveTerrain = [];
+
+    const additions = [];
+    if (this.hasModule('Sail')) additions.push('surf', 'water');
+    if (this.hasModule('Navy')) additions.push('deep');
+    if (this.hasModule('Dual')) additions.push('land');
+    if (this.hasModule('Air')) this.ignoresObstacles = true;
+
+    this.moveTerrain = Array.from(new Set([...this.moveTerrain, ...additions]));
   }
 
   moveTo(q, r, s) {
@@ -88,10 +98,8 @@ class Unit {
     this.canAct = false;
 
     console.log(`🚶 [MOVE] ${this.type} moved to (${q},${r},${s})`);
-
     renderMap(state.scale, state.offset);
     evaluatePostAction(this, { type: 'move' });
-
     return true;
   }
 
@@ -109,7 +117,6 @@ class Unit {
       visited.add(key);
 
       const cell = state.map.flat().find(c => c.q === current.q && c.r === current.r && c.s === current.s);
-
       if (!cell) {
         console.warn(`⚠️ [No Cell] (${current.q},${current.r},${current.s}) not found on map`);
         continue;
@@ -124,9 +131,7 @@ class Unit {
         continue;
       }
 
-      if (current.dist > 0) {
-        result.push({ q: current.q, r: current.r, s: current.s });
-      }
+      if (current.dist > 0) result.push({ q: current.q, r: current.r, s: current.s });
 
       if (current.dist < this.moRange) {
         const neighbors = [
@@ -178,19 +183,14 @@ function addUnit(q, r, s, type, owner) {
   const unitOnCell = units.find(u => u.q === q && u.r === r && u.s === s);
   if (!cell || !ClassTemplates[type] || unitOnCell) return;
 
-  const moveSet = ClassTemplates[type]?.moveTerrain || [];
-  const terrain = cell?.terrainType;
-
-  const isBlockedSpawn = !moveSet.includes(terrain);
-
-  if (isBlockedSpawn) {
-    console.warn(`❌ Cannot spawn ${type} on ${terrain} (${q}, ${r}, ${s})`);
+  if (!canUnitSpawnOnHex(type, cell)) {
+    console.warn(`❌ Cannot spawn ${type} on ${cell.terrainType} (${q}, ${r}, ${s})`);
     return;
   }
 
   const template = ClassTemplates[type];
   const unit = new Unit(q, r, s, type, owner, template);
-  unit.color = owner === 'enemy' ? '#666' : undefined;
+  unit.color = owner?.startsWith('enemy') ? '#755' : '#000';
   units.push(unit);
   renderUnits();
   console.log(`✅ Unit ADDED: ${type} at (${q}, ${r}, ${s})`);
@@ -212,9 +212,7 @@ function selectUnit(unit) {
   const hasAttacks = Unit.getAttackableHexes(unit).length > 0;
   const isPercyReady = unit.canRepeatAttackOnKill && unit.lastAttackWasKill && hasAttacks;
 
-  const isInactive =
-    (!unit.canAct && !unit.canMove && !isPercyReady) ||
-    (!hasMoves && !hasAttacks);
+  const isInactive = (!unit.canAct && !unit.canMove && !isPercyReady) || (!hasMoves && !hasAttacks);
 
   if (isInactive) {
     console.warn(`⚠️ [Guard] ${unit.type} cannot act – skip selection`);
@@ -237,4 +235,12 @@ function hasModule(unit, modName) {
   return Array.isArray(unit.modules) && unit.modules.includes(modName);
 }
 
-export { Unit, units, addUnit, generateUnits, selectUnit, resetUnitsActions, hasModule };
+export {
+  Unit,
+  units,
+  addUnit,
+  generateUnits,
+  selectUnit,
+  resetUnitsActions,
+  hasModule
+};

@@ -6,8 +6,8 @@ export const NavigationModules = {
     tags: ['navigation'],
     description: 'Юнит может двигаться по water, surf, land; по суше 1 гекс.',
     effect: (unit) => {
-      unit.moveTerrain = ['water', 'surf', 'land'];
-      unit.moRange = Math.max(1, unit.moRange);
+      unit.moveTerrain = Array.from(new Set([...(unit.moveTerrain || []), 'water', 'surf', 'land']));
+      unit.moRange = Math.max(1, unit.moRange); // Подтверждаем, что дальность не будет меньше 1
     }
   },
   Sail: {
@@ -15,7 +15,7 @@ export const NavigationModules = {
     tags: ['navigation'],
     description: 'Перемещение по water и deep с уменьшением дальности хода.',
     effect: (unit) => {
-      unit.moveTerrain = ['surf', 'water'];
+      unit.moveTerrain = Array.from(new Set([...(unit.moveTerrain || []), 'surf', 'water']));
       unit.moRange = Math.max(1, unit.moRange - 1);
     }
   },
@@ -24,9 +24,8 @@ export const NavigationModules = {
     tags: ['navigation'],
     description: 'Улучшенное перемещение по deep и +1 к дальности атаки.',
     effect: (unit) => {
-      unit.moveTerrain = ['water', 'deep'];
+      unit.moveTerrain = Array.from(new Set([...(unit.moveTerrain || []), 'water', 'deep']));
       unit.moRange += 1;
-      unit.atRange += 0;
     }
   },
   Air: {

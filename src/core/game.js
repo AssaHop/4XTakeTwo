@@ -1,4 +1,4 @@
-// 📂 game.js — основной файл инициализации (с интеграцией FSM и прогрессии)
+// 📂 game.js — основной файл инициализации
 
 import { renderMap, renderUnits } from '../ui/render.js';
 import { generateScenario, getInitialUnitsForScenario } from '../scenarios/scenarios.js';
@@ -6,9 +6,9 @@ import { generateUnits } from '../mechanics/units.js';
 import { setupUI } from '../ui/setup.js';
 import { setupEventListeners } from '../ui/events.js';
 import { updateEndTurnButton } from '../ui/uiControls.js';
-import { state } from '../core/state.js';
-import { loadGameState, saveGameState } from '../core/savegame.js';
-import { transitionTo, GameState } from '../core/gameStateMachine.js';
+import { state } from './state.js';
+import { loadGameState, saveGameState } from './savegame.js';
+import { transitionTo, GameState } from './gameStateMachine.js';
 import { initProgressionSystem } from '../mechanics/progressionSystem.js';
 
 let scale = 1;
@@ -35,22 +35,23 @@ function showMenu() {
   document.getElementById('game-container').style.display = 'none';
 }
 
-function startGame(size = 2, scenarioName = 'default') {
+function startGame(size = 15, scenarioName = 'dominator', enemyCount = 2) {
   document.getElementById('menu-container').style.display = 'none';
   document.getElementById('game-container').style.display = 'block';
-  initGame(size, scenarioName);
+  initGame(size, scenarioName, enemyCount);
 }
 
-function initGame(size, scenarioName = 'default') {
+function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2) {
   updateMapOffset();
-  state.map = generateScenario(scenarioName, size);
+  const map = generateScenario(scenarioName, { size });
+  state.map = map;
 
-  if (!state.map || state.map.length === 0) {
+  if (!map || map.length === 0) {
     console.error('❌ Map generation failed');
     return;
   }
 
-  const unitsList = getInitialUnitsForScenario(scenarioName, state.map);
+  const unitsList = getInitialUnitsForScenario(scenarioName, map, { enemyCount });
   console.log('🧍 Units to generate:', unitsList);
 
   if (!unitsList || unitsList.length === 0) {
@@ -61,12 +62,12 @@ function initGame(size, scenarioName = 'default') {
 
   renderMap(scale, offset);
   renderUnits(scale, offset);
-  updateEndTurnButton(); // ✅ Перенесено сюда после рендера
+  updateEndTurnButton();
   setupEventListeners();
-  initProgressionSystem(state); // ✅ Подключение системы технологий
+  initProgressionSystem(state);
 
   transitionTo(GameState.IDLE);
-  console.log(`✅ Game initialized: scenario=${scenarioName}, size=${size}`);
+  console.log(`✅ Game initialized: scenario=${scenarioName}, size=${size}, enemies=${enemyCount}`);
 }
 
 function setupCanvas() {
@@ -143,25 +144,38 @@ function loadGame() {
   }
 }
 
+// 📱 Поддержка адаптивности
 window.addEventListener('resize', () => {
   setupCanvas();
   renderMap(state.scale, state.offset);
   renderUnits(state.scale, state.offset);
 });
 
+// ✅ Точка входа
 document.addEventListener('DOMContentLoaded', () => {
-  setupUI();
+  setupUI(); // 🧱 Инициализация сценариев и кнопок
+
   window.requestAnimationFrame(() => {
     setupCanvas();
     showMenu();
     setupZoomControls();
     setupDragControls();
-    startGame(2, 'default');
+
+    const backButton = document.getElementById('back-to-menu-button');
+    if (backButton) {
+      backButton.addEventListener('click', () => {
+        showMenu(); // 🔁 Вернуться в главное меню
+      });
+    }
+
+    // ❌ Удалили автозапуск startGame
   });
 });
 
+
+// 🪄 Для доступа из браузера (например, в консоли)
 window.startGame = startGame;
 window.saveGame = saveGame;
 window.loadGame = loadGame;
 
-export { state, scale, mapOffsetX, mapOffsetY };
+export { state, scale, mapOffsetX, mapOffsetY, startGame };

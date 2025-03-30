@@ -8,8 +8,19 @@
 </head>
 <body>
   <div id="menu-container">
-    <!-- Элементы меню -->
-    <button onclick="startGame(30)">Start Large Game</button>
+    <label>Режим:
+      <select id="scenario-select"></select>
+    </label>
+  
+    <label>Размер карты:
+      <input type="number" id="map-size" value="15" min="8" max="30" />
+    </label>
+  
+    <label>Противники:
+      <input type="number" id="enemy-count" value="2" min="0" max="6" />
+    </label>
+  
+    <button id="start-button">Начать игру</button>
   </div>
 
   <div id="game-container" style="display: none;">
