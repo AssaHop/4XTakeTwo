@@ -13,11 +13,11 @@ export const terrainPresets = {
         peak: { min: 2, max: 8 }
       },
       spawnRules: {
-        surf: { condition: "land,hill,mount", requiredNeighbors: 1, probability: 0.9, prohibitedNeighbors: "peak,deep" },
+        surf: { condition: "land,hill,mount", requiredNeighbors: 1, probability: 0.9, prohibitedNeighbors: "peak,deep, mount" },
         land: { condition: "surf,land,hill", requiredNeighbors: 2, probability: 0.8 },
         hill: { condition: "land,hill,surf", requiredNeighbors: 2, probability: 0.5 },
         mount: { condition: "land,hill,mount", requiredNeighbors: 2, prohibitedNeighbors: "surf", probability: 0.7 },
-        peak: { condition: "mount", requiredNeighbors: 2 },
+        peak: { condition: "mount", requiredNeighbors: 2, prohibitedNeighbors: "surf, water, deep" },
         deep: { condition: "water", prohibitedNeighbors: "surf" },
         water: { condition: "surf,land", probability: 0.7 }
       },

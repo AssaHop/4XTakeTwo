@@ -1,18 +1,26 @@
 import { generateHexMap } from '../world/map.js';
-import { applySpawnRules } from '../utils/applySpawnRules.js';
+import { applySpawnRules, applyLayeredIslandRules } from '../utils/applySpawnRules.js';
 import { getTemplateSpawnCells, getRandomFreeHex } from '../utils/spawnUtils.js';
+import { terrainPresets } from '../utils/terrainPresets.js';
 
 export const dominator = {
   id: 'dominator',
   name: 'Dominator',
 
   generateMap: ({ size = 15, profile = 'default' }) => {
-    const map = generateHexMap(size, 0, 0, profile);
+    const map = generateHexMap(size, 0, 0);
+    const preset = terrainPresets[profile];
 
-    // ✅ Применяем правила спауна гексов
+    if (!preset) {
+      console.warn(`❌ Unknown terrain profile: ${profile}`);
+      return map;
+    }
+
+    // 📦 Применяем spawnRules из пресета + сценарные правила
     map.flat().forEach(tile => {
       applySpawnRules(tile, map, {
         spawnRules: {
+          ...preset.spawnRules,
           reef: {
             condition: 'water,deep',
             requiredNeighbors: 2,
@@ -22,6 +30,9 @@ export const dominator = {
         }
       });
     });
+
+    // 🌋 Слоистые острова (если подходит)
+    applyLayeredIslandRules(map.flat());
 
     return map;
   },

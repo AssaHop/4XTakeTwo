@@ -1,32 +1,33 @@
-// 📁 src/utils/clusterizeTerrain.js
+import { getTile } from '../world/map.js';
 
-import { getTile, getNeighbors } from '../world/map.js';
-
+/**
+ * Генерирует кластеры террейна с использованием seed-псевдослучайности
+ */
 export function generateTerrainClusters(mapTiles, options = {}) {
   const {
-    seedCount = 7,
-    growIterations = 3,
-    growChance = 0.5
+    seedCount = 49,
+    growIterations = 1,
+    growChance = 0.5,
+    seed = Date.now()
   } = options;
 
+  const rng = createSeededRNG(seed);
   const availableTerrains = ['land', 'hill', 'mount', 'surf', 'water'];
 
-  // Выбираем случайные точки — seedTiles
   const seeds = [];
   for (let i = 0; i < seedCount; i++) {
-    const randomTile = mapTiles[Math.floor(Math.random() * mapTiles.length)];
-    const type = availableTerrains[Math.floor(Math.random() * availableTerrains.length)];
+    const randomTile = mapTiles[Math.floor(rng() * mapTiles.length)];
+    const type = availableTerrains[Math.floor(rng() * availableTerrains.length)];
     randomTile.terrainType = type;
     seeds.push({ tile: randomTile, type });
   }
 
-  // Рост от очагов — по соседям
   for (let step = 0; step < growIterations; step++) {
     const newTiles = [];
     for (const { tile, type } of seeds) {
       const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
       for (const neighbor of neighbors) {
-        if (Math.random() < growChance && neighbor.terrainType !== type) {
+        if (rng() < growChance && neighbor.terrainType !== type) {
           neighbor.terrainType = type;
           newTiles.push({ tile: neighbor, type });
         }
@@ -36,7 +37,10 @@ export function generateTerrainClusters(mapTiles, options = {}) {
   }
 }
 
-export function clusterizeTerrain(mapTiles, intensity = 0.6) {
+/**
+ * Делает террейн более естественным — сглаживание по соседям
+ */
+export function clusterizeTerrain(mapTiles, intensity = 0.6, rng = Math.random) {
   for (const tile of mapTiles) {
     const neighbors = tile.neighbors
       .map(n => getTile(n.q, n.r, n.s))
@@ -44,12 +48,23 @@ export function clusterizeTerrain(mapTiles, intensity = 0.6) {
 
     const sameTypeCount = neighbors.filter(n => n.terrainType === tile.terrainType).length;
 
-    if (sameTypeCount >= 3 && Math.random() < intensity) {
+    if (sameTypeCount >= 3 && rng() < intensity) {
       for (const neighbor of neighbors) {
-        if (neighbor.terrainType !== tile.terrainType && Math.random() < 0.3) {
+        if (neighbor.terrainType !== tile.terrainType && rng() < 0.3) {
           neighbor.terrainType = tile.terrainType;
         }
       }
     }
   }
+}
+
+/**
+ * Утилита: генератор псевдослучайных чисел по сид-значению
+ */
+function createSeededRNG(seed) {
+  let x = Math.sin(seed) * 10000;
+  return () => {
+    x = Math.sin(x) * 10000;
+    return x - Math.floor(x);
+  };
 }

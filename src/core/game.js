@@ -1,5 +1,3 @@
-// 📂 game.js — основной файл инициализации
-
 import { renderMap, renderUnits } from '../ui/render.js';
 import { generateScenario, getInitialUnitsForScenario } from '../scenarios/scenarios.js';
 import { generateUnits } from '../mechanics/units.js';
@@ -35,15 +33,17 @@ function showMenu() {
   document.getElementById('game-container').style.display = 'none';
 }
 
-function startGame(size = 15, scenarioName = 'dominator', enemyCount = 2) {
+function startGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapType = 'default') {
   document.getElementById('menu-container').style.display = 'none';
   document.getElementById('game-container').style.display = 'block';
-  initGame(size, scenarioName, enemyCount);
+  initGame(size, scenarioName, enemyCount, mapType); // ✅ добавлен mapType
 }
 
-function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2) {
+function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapType = 'default') {
   updateMapOffset();
-  const map = generateScenario(scenarioName, { size });
+
+  // ✅ передаём profile = mapType
+  const map = generateScenario(scenarioName, { size, profile: mapType });
   state.map = map;
 
   if (!map || map.length === 0) {
@@ -67,7 +67,7 @@ function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2) {
   initProgressionSystem(state);
 
   transitionTo(GameState.IDLE);
-  console.log(`✅ Game initialized: scenario=${scenarioName}, size=${size}, enemies=${enemyCount}`);
+  console.log(`✅ Game initialized: scenario=${scenarioName}, size=${size}, enemies=${enemyCount}, mapType=${mapType}`);
 }
 
 function setupCanvas() {
@@ -144,16 +144,14 @@ function loadGame() {
   }
 }
 
-// 📱 Поддержка адаптивности
 window.addEventListener('resize', () => {
   setupCanvas();
   renderMap(state.scale, state.offset);
   renderUnits(state.scale, state.offset);
 });
 
-// ✅ Точка входа
 document.addEventListener('DOMContentLoaded', () => {
-  setupUI(); // 🧱 Инициализация сценариев и кнопок
+  setupUI();
 
   window.requestAnimationFrame(() => {
     setupCanvas();
@@ -164,16 +162,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const backButton = document.getElementById('back-to-menu-button');
     if (backButton) {
       backButton.addEventListener('click', () => {
-        showMenu(); // 🔁 Вернуться в главное меню
+        showMenu();
       });
     }
-
-    // ❌ Удалили автозапуск startGame
   });
 });
 
-
-// 🪄 Для доступа из браузера (например, в консоли)
+// 🪄 Exposed for debug
 window.startGame = startGame;
 window.saveGame = saveGame;
 window.loadGame = loadGame;
