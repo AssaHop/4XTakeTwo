@@ -13,11 +13,10 @@ import { terrainPresets } from './terrainPresets.js';
 // 🔁 Импорт профилей карт
 import { defaultIsland } from './mapProfiles/defaultIsland.js';
 
-// ✅ Добавляем оба ID: и 'defaultIsland', и 'default'
 const mapProfiles = {
-  defaultIsland,
-  default: defaultIsland // 👈 это устраняет ошибку
-};
+    defaultIsland,
+    default: defaultIsland // ✅ алиас для совместимости
+  };
 
 // 🎲 Шейпы островов (задание seed-зон)
 const shapePresets = {
@@ -28,10 +27,32 @@ const shapePresets = {
     { zone: 'right', count: 3, type: 'land' }
   ],
   tail: [
+    { zone: 'center', count: 1, type: 'peak' },
     { zone: 'center', count: 2, type: 'mount' },
-    { zone: 'bottom', count: 4, type: 'hill' }
+    { zone: 'center', count: 3, type: 'hill' },
+    { zone: 'bottom', count: 4, type: 'land' }
+  ],
+  horseshoe: [
+    { zone: 'topLeft', count: 3, type: 'hill' },
+    { zone: 'topRight', count: 3, type: 'hill' },
+    
   ],
   split: [
+    { zone: 'topLeft', count: 3, type: 'hill' },
+    { zone: 'bottomRight', count: 3, type: 'mount' }
+  ],
+  bone: [
+    { zone: 'topLeft', count: 3, type: 'mount' },
+    { zone: 'topRight', count: 3, type: 'mount' },
+    { zone: 'bottomLeft', count: 3, type: 'mount' },
+    { zone: 'bottomRight', count: 3, type: 'mount' },
+    { zone: 'center', count: 1, type: 'peak' }
+  ],
+  ridge: [
+    { zone: 'left', count: 6, type: 'hill' },
+    { zone: 'right', count: 6, type: 'hill' }
+  ],
+  twin: [
     { zone: 'topLeft', count: 3, type: 'hill' },
     { zone: 'bottomRight', count: 3, type: 'mount' }
   ]

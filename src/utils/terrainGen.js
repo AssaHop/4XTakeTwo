@@ -32,6 +32,7 @@ export function generateTerrainClusters(mapTiles, options = {}) {
         tile.terrainType = zone.type;
         usedTiles.add(tileKey(tile));
         seeds.push({ tile, type: zone.type });
+        console.log(`[Zone "${zone.zone}"] Found ${zoneTiles.length} tiles`);
       }
     }
   });
@@ -98,7 +99,10 @@ function filterZone(mapTiles, zoneName) {
     if (zoneName === 'bottomRight') return q > midQ && r > midR;
 
     return false;
+   
   });
+  console.log(`📐 Zone "${zoneName}" includes ${filtered.length} tiles`);
+  return filtered;  
 }
 
 /* ----------------------------------------------
