@@ -4,20 +4,20 @@ export const terrainPresets = {
     default: {
       profileName: "Default Island",
       terrainDistribution: {
-        surf: { min: 30, max: 40 },
-        water: { min: 20, max: 50 },
+        surf: { min: 30, max: 60 },
+        water: { min: 20, max: 70 },
         deep: { min: 10, max: 40 },
         land: { min: 10, max: 15 },
         hill: { min: 5, max: 10 },
         mount: { min: 24, max: 50 },
-        peak: { min: 2, max: 8 }
+        peak: { min: 2, max: 5 }
       },
       spawnRules: {
         surf: { condition: "land,hill,mount", requiredNeighbors: 1, probability: 0.9, prohibitedNeighbors: "peak,deep, mount" },
         land: { condition: "surf,land,hill", requiredNeighbors: 2, probability: 0.8 },
         hill: { condition: "land,hill,surf", requiredNeighbors: 2, probability: 0.5 },
         mount: { condition: "land,hill,mount", requiredNeighbors: 2, prohibitedNeighbors: "surf", probability: 0.7 },
-        peak: { condition: "mount", requiredNeighbors: 2, prohibitedNeighbors: "surf, water, deep" },
+        peak: { condition: "mount", requiredNeighbors: 1, prohibitedNeighbors: "surf, water, deep, hill, land" },
         deep: { condition: "water", prohibitedNeighbors: "surf" },
         water: { condition: "surf,land", probability: 0.7 }
       },

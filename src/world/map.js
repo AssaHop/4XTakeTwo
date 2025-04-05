@@ -1,8 +1,13 @@
 // 📋 src/world/map.js
-import { createTerrainPool, shuffleArray } from '../utils/terrainPool.js';
-import { applySpawnRules } from '../utils/applySpawnRules.js';
+
+import {
+  createTerrainPool,
+  shuffleArray,
+  applySpawnRules,
+  generateTerrainClusters
+} from '../utils/terrainGen.js';
+
 import { terrainPresets } from '../utils/terrainPresets.js';
-import { generateTerrainClusters } from '../utils/clusterizeTerrain.js';
 
 const HEX_RADIUS = 40;
 
@@ -78,7 +83,7 @@ function generateHexMap(size, offsetX = 0, offsetY = 0, profileKey = 'default') 
       const s = -q - r;
       if (Math.abs(s) <= size) {
         const { x, y } = cubeToPixel(q, r, s, offsetX, offsetY);
-        let terrainType = terrainPool[poolIndex++] || 'surf';
+        const terrainType = terrainPool[poolIndex++] || 'surf';
 
         const tile = {
           q, r, s, x, y, terrainType,
@@ -93,6 +98,7 @@ function generateHexMap(size, offsetX = 0, offsetY = 0, profileKey = 'default') 
     map.push(rowArray);
   }
 
+  // 🎯 Применяем правила генерации и кластеры
   mapTiles.forEach(tile => applySpawnRules(tile, mapTiles, preset));
   generateTerrainClusters(mapTiles, preset.clusterConfig);
 
@@ -107,7 +113,7 @@ function getHexCount(size) {
   let count = 0;
   for (let q = -size; q <= size; q++) {
     for (let r = -size; r <= size; r++) {
-      let s = -q - r;
+      const s = -q - r;
       if (Math.abs(s) <= size) count++;
     }
   }

@@ -1,5 +1,4 @@
-import { generateHexMap } from '../world/map.js';
-import { applySpawnRules } from '../utils/applySpawnRules.js';
+import { generateMapByProfile } from '../utils/generateMapByProfile.js';
 import { getTemplateSpawnCells, getRandomFreeHex } from '../utils/spawnUtils.js';
 
 export const conqueror = {
@@ -8,27 +7,20 @@ export const conqueror = {
 
   maxTurns: 30,
 
-  generateMap: ({ size = 14, profile = 'default' }) => {
-    const map = generateHexMap(size, 0, 0, profile);
+  generateMap: ({ size = 14, profile = 'defaultIsland', seed = Date.now() }) => {
+    // 🗺 Базовая генерация карты
+    const map = generateMapByProfile(profile, size, seed);
 
-    // Добавим рифы/зоны для захвата
+    // 🎯 Сценарные спец-тайлы (рифы, зоны)
     map.flat().forEach(tile => {
-      applySpawnRules(tile, map, {
-        spawnRules: {
-          reef: {
-            condition: 'water,deep',
-            requiredNeighbors: 2,
-            fallback: 'water',
-            probability: 0.5
-          },
-          zone: {
-            condition: 'reef,deep',
-            requiredNeighbors: 1,
-            fallback: 'reef',
-            probability: 0.2
-          }
+      if (tile.terrainType === 'water' || tile.terrainType === 'deep') {
+        const roll = Math.random();
+        if (roll < 0.5) {
+          tile.terrainType = 'reef';
+        } else if (roll < 0.6) {
+          tile.terrainType = 'zone';
         }
-      });
+      }
     });
 
     return map;
@@ -63,7 +55,6 @@ export const conqueror = {
     const turnsPassed = state.turnCount || 0;
     if (turnsPassed < 30) return false;
 
-    // Подсчёт очков по захваченным зонам
     const playerZones = state.map.flat().filter(cell =>
       cell.controlledBy === 'player1' && cell.terrainType === 'zone'
     );
