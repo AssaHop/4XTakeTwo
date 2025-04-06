@@ -1,4 +1,4 @@
-// 📁 src/utils/terrainGen.js
+// 📋 src/utils/terrainGen.js
 
 import { getTile } from '../world/map.js';
 
@@ -73,7 +73,6 @@ function filterZone(mapTiles, zoneName) {
   const qMax = Math.max(...mapTiles.map(t => t.q));
   const rMin = Math.min(...mapTiles.map(t => t.r));
   const rMax = Math.max(...mapTiles.map(t => t.r));
-
   const midQ = (qMin + qMax) / 2;
   const midR = (rMin + rMax) / 2;
 
@@ -117,17 +116,12 @@ export function clusterizeTerrain(mapTiles, intensity = 0.6, rng = Math.random) 
 export function applyVerticalIslandGrowth(mapTiles, verticalGrowthRules = {}) {
   for (const baseType in verticalGrowthRules) {
     const promotions = verticalGrowthRules[baseType];
-
     const candidates = mapTiles.filter(t => t.terrainType === baseType);
-
     for (const tile of candidates) {
       const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
-
       for (const promoteTo in promotions) {
         const rule = promotions[promoteTo];
         const countSame = neighbors.filter(n => n.terrainType === baseType).length;
-
-        // 🎲 Шанс повышения уровня террейна
         if (countSame >= rule.threshold && Math.random() < rule.chance) {
           tile.terrainType = promoteTo;
         }
@@ -137,16 +131,15 @@ export function applyVerticalIslandGrowth(mapTiles, verticalGrowthRules = {}) {
 }
 
 /* ----------------------------------------------
-   🌊 SURF GENERATION AROUND ISLANDS
+   🌊 SURF GENERATION + DEEP PASS
 ------------------------------------------------ */
 
-export function applySurfRim(mapTiles, options = {}) {
+export function applySurfAndDeepPass(mapTiles) {
   const rng = Math.random;
   const pendingSurf = new Set();
+  const waterTiles = mapTiles.filter(t => t.terrainType === 'water');
 
-  for (const tile of mapTiles) {
-    if (tile.terrainType !== 'water') continue;
-
+  for (const tile of waterTiles) {
     const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
     const hasLand = neighbors.some(n => ['land', 'hill'].includes(n.terrainType));
     const hasMount = neighbors.some(n => n.terrainType === 'mount');
@@ -162,6 +155,16 @@ export function applySurfRim(mapTiles, options = {}) {
   }
 
   pendingSurf.forEach(t => t.terrainType = 'surf');
+
+  // 🌊 Deep water pass (simple): mark distant water as deep
+  for (const tile of mapTiles) {
+    if (tile.terrainType !== 'water') continue;
+    const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
+    const hasSurfOrLand = neighbors.some(n => ['surf', 'land', 'hill', 'mount'].includes(n.terrainType));
+    if (!hasSurfOrLand && rng() < 0.5) {
+      tile.terrainType = 'deep';
+    }
+  }
 }
 
 /* ----------------------------------------------
