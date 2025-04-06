@@ -1,26 +1,70 @@
+// 📁 src/utils/mapProfiles/strait.js
+
 export const strait = {
   id: 'strait',
-  name: 'The Strait',
+  name: 'The Great Strait',
 
-  // 🧬 Террейн-контроль
-  seedCount: 38,                  // нет рандомных seed-островов (всё вручную через зоны)
-  growIterations: 3,            // рост кластеров
-  growChance: 0.5,              // шанс роста в каждом шаге
-  clusterIntensity: 0.6,        // сглаживание/кластеризация
+  growIterations: 6,
+  growChance: 0.85,
+  clusterIntensity: 0.5,
 
-  // 🧭 Зональные точки генерации (искусственные seed-кластеры)
-  seedZones: [
-    { zone: 'topEdge', count: 18, type: 'land' },
-    { zone: 'bottomEdge', count: 8, type: 'land' },
-    { zone: 'center', count: 2, type: 'mount' },
-    { zone: 'center', count: 4, type: 'hill' }
+  zonalIslands: [
+    {
+      name: 'topLeft',
+      count: 3,
+      shapes: [
+        { name: 'blob', chance: 2, type: 'land' },
+        { name: 'ridge', chance: 1, type: 'land' }
+      ]
+    },
+    {
+      name: 'topRight',
+      count: 3,
+      shapes: [
+        { name: 'blob', chance: 1, type: 'land' },
+        { name: 'tail', chance: 2, type: 'land' }
+      ]
+    },
+    {
+      name: 'centerLeft',
+      count: 2,
+      shapes: [
+        { name: 'ridge', chance: 3, type: 'land' }
+      ]
+    },
+    {
+      name: 'centerRight',
+      count: 2,
+      shapes: [
+        { name: 'ridge', chance: 3, type: 'land' }
+      ]
+    },
+    {
+      name: 'bottomLeft',
+      count: 3,
+      shapes: [
+        { name: 'blob', chance: 2, type: 'land' },
+        { name: 'tail', chance: 1, type: 'land' }
+      ]
+    },
+    {
+      name: 'bottomRight',
+      count: 3,
+      shapes: [
+        { name: 'blob', chance: 2, type: 'land' },
+        { name: 'tail', chance: 1, type: 'land' }
+      ]
+    }
   ],
 
-  // 🧪 Дополнительные правила спауна (если нужны)
-  spawnRules: {
-    // можно оставить пустым или добавить что-то по вкусу
-  },
+  terrainPresetKey: 'default',
 
-  // 🔗 Ссылка на набор вероятностей террейна
-  terrainPresetKey: 'default'
+  spawnRules: {},
+
+  islandLayers: {
+    micro: ['land', 'surf'],
+    small: ['hill', 'land', 'surf'],
+    medium: ['mount', 'hill', 'land', 'surf'],
+    large: ['peak', 'mount', 'hill', 'land', 'surf']
+  }
 };

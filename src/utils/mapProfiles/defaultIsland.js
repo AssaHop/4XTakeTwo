@@ -1,73 +1,64 @@
-// 📁 src/utils/mapProfiles/defaultIsland.js
-
 export const defaultIsland = {
   id: 'defaultIsland',
-  name: 'Default Island',
+  name: 'Debug Island',
 
-  // 🧬 Контроль генерации террейна
-  growIterations: 15,              // 🔁 Кол-во итераций роста кластеров
-  growChance: 12,                  // 🎲 Шанс захвата соседнего гекса
-  clusterIntensity: 0.6,          // 📦 Пост-сглаживание
+  growIterations: 6,
+  growChance: 0.85,
+  clusterIntensity: 0.5,
 
-  // 🎲 Новая генерация по зонам
   zonalIslands: [
     {
       name: 'topLeft',
+      count: 3,
       shapes: [
-        { name: 'blob', chance: 50, type: 'land' }
-      ]
-    },
-    {
-      name: 'topRight',
-      shapes: [
-        { name: 'tail', chance: 0, type: 'land' }
-      ]
-    },
-    {
-      name: 'Right',
-      shapes: [
-        { name: 'blob', chance: 0, type: 'land' }
-      ]
-    },
-    {
-      name: 'centerRight',
-      shapes: [
-        { name: 'ridge', chance: 0, type: 'land' }
-      ]
-    },
-    {
-      name: 'centerLeft',
-      shapes: [
+        { name: 'blob', chance: 2, type: 'land' },
         { name: 'ridge', chance: 1, type: 'land' }
       ]
     },
     {
-      name: 'bottomRight',
+      name: 'topRight',
+      count: 3,
       shapes: [
-        { name: 'blob', chance: 1, type: 'land' }
+        { name: 'blob', chance: 1, type: 'land' },
+        { name: 'tail', chance: 2, type: 'land' }
+      ]
+    },
+    {
+      name: 'centerLeft',
+      count: 2,
+      shapes: [
+        { name: 'ridge', chance: 3, type: 'land' }
+      ]
+    },
+    {
+      name: 'centerRight',
+      count: 2,
+      shapes: [
+        { name: 'ridge', chance: 3, type: 'land' }
       ]
     },
     {
       name: 'bottomLeft',
+      count: 3,
       shapes: [
-        { name: 'blob', chance: 1, type: 'land' }
+        { name: 'blob', chance: 2, type: 'land' },
+        { name: 'tail', chance: 1, type: 'land' }
       ]
     },
     {
-      name: 'Left',
+      name: 'bottomRight',
+      count: 3,
       shapes: [
-        { name: 'blob', chance: 1, type: 'land' }
+        { name: 'blob', chance: 2, type: 'land' },
+        { name: 'tail', chance: 1, type: 'land' }
       ]
     }
   ],
 
-  // 🧾 Ссылка на пресет террейна
   terrainPresetKey: 'default',
 
-  // 🧪 Пользовательские spawn-правила
   spawnRules: {},
 
-  // 🏝️ Правила формирования островов по размеру
   islandLayers: {
     micro: ['land', 'surf'],
     small: ['hill', 'land', 'surf'],

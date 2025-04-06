@@ -9,9 +9,9 @@ import { getTile } from '../world/map.js';
 export function generateTerrainClusters(mapTiles, options = {}) {
   const {
     seed = Date.now(),
-    seedCount = 120,
-    growIterations = 12,
-    growChance = 1,
+    seedCount = 20,
+    growIterations = 2,
+    growChance = 0.5,
     seedZones = []
   } = options;
 
@@ -132,6 +132,34 @@ export function applyVerticalIslandGrowth(mapTiles, verticalGrowthRules = {}) {
       }
     }
   }
+}
+
+/* ----------------------------------------------
+   🌊 SURF GENERATION AROUND ISLANDS
+------------------------------------------------ */
+
+export function applySurfRim(mapTiles, options = {}) {
+  const rng = Math.random;
+  const pendingSurf = new Set();
+
+  for (const tile of mapTiles) {
+    if (tile.terrainType !== 'water') continue;
+
+    const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
+    const hasLand = neighbors.some(n => ['land', 'hill'].includes(n.terrainType));
+    const hasMount = neighbors.some(n => n.terrainType === 'mount');
+
+    if (hasLand && !hasMount) {
+      tile.terrainType = 'surf';
+    } else {
+      const surfCount = neighbors.filter(n => n.terrainType === 'surf').length;
+      if (surfCount >= 2 && rng() < 0.3) {
+        pendingSurf.add(tile);
+      }
+    }
+  }
+
+  pendingSurf.forEach(t => t.terrainType = 'surf');
 }
 
 /* ----------------------------------------------
