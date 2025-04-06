@@ -36,18 +36,6 @@ const shapePresets = {
   ]
 };
 
-// 🧗 Настройка вертикального роста на базе плотности террейна
-const verticalGrowthRules = {
-  land: {
-    hill: { threshold: 6, chance: 0.5 },
-    mount: { threshold: 10, chance: 0.3 }
-  },
-  hill: {
-    mount: { threshold: 5, chance: 0.4 },
-    peak: { threshold: 8, chance: 0.2 }
-  }
-};
-
 /**
  * Генерация карты по ID профиля
  * @param {string} profileId - ключ профиля (например, "defaultIsland")
@@ -75,9 +63,13 @@ export function generateMapByProfile(profileId = 'defaultIsland', size = 15, see
   clusterizeTerrain(map.flat(), profile.clusterIntensity, rng);
 
   // 🧱 Вертикальный рост островов по правилам
-  applyVerticalIslandGrowth(map.flat(), verticalGrowthRules);
+  applyVerticalIslandGrowth(
+    map.flat(),
+    profile.verticalGrowthRules || {},
+    profile.verticalIterations || 5
+  );
 
-  // 🌊 Береговая линия и глубокая вода
+  // 🌊 Генерация обводки и глубинной воды
   applySurfAndDeepPass(map.flat());
 
   return map;

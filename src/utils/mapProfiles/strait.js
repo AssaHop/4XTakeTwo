@@ -6,34 +6,33 @@ export const strait = {
 
   growIterations: 18,
   growChance: 0.9,
-  clusterIntensity: 0.5,
+  clusterIntensity: 0.9,
 
   zonalIslands: [
     {
       name: 'topLeft',
-      count: 100,
+      count: 15,
       shapes: [
         { name: 'blob', chance: 1, type: 'land' }
-             ]
+      ]
     },
     {
       name: 'topRight',
-      count: 0,
+      count: 10,
       shapes: [
-        { name: 'blob', chance: 1, type: 'land' },
-        { name: 'tail', chance: 2, type: 'land' }
+                { name: 'tail', chance: 1, type: 'land' }
       ]
     },
     {
       name: 'centerLeft',
-      count: 0,
+      count: 10,
       shapes: [
         { name: 'ridge', chance: 1, type: 'land' }
       ]
     },
     {
       name: 'centerRight',
-      count: 2,
+      count: 0,
       shapes: [
         { name: 'ridge', chance: 3, type: 'land' }
       ]
@@ -48,7 +47,7 @@ export const strait = {
     },
     {
       name: 'bottomRight',
-      count: 33,
+      count: 12,
       shapes: [
         { name: 'blob', chance: 2, type: 'land' },
         { name: 'tail', chance: 1, type: 'land' }
@@ -69,12 +68,16 @@ export const strait = {
   // 🔼 Правила вертикального роста
   verticalGrowthRules: {
     land: {
-      hill: { threshold: 4, chance: 0.7 },
-      mount: { threshold: 10, chance: 0.7 }
+      hill: { threshold: 4, chance: 0.99 },
     },
     hill: {
-      mount: { threshold: 5, chance: 0.8 },
-      peak: { threshold: 8, chance: 0.2 }
+      mount: { threshold: 5, chance: 0.7 },
+    },
+    mount: {
+      peak: { threshold: 6, chance: 0.3 }
     }
-  }
+  },
+
+  // 🔁 Кол-во шагов вертикального роста
+  verticalIterations: 5
 };

@@ -110,20 +110,23 @@ export function clusterizeTerrain(mapTiles, intensity = 0.6, rng = Math.random) 
 }
 
 /* ----------------------------------------------
-   🧱 VERTICAL ISLAND GROWTH (NEW)
+   🧱 VERTICAL ISLAND GROWTH (with iterations)
 ------------------------------------------------ */
 
-export function applyVerticalIslandGrowth(mapTiles, verticalGrowthRules = {}) {
-  for (const baseType in verticalGrowthRules) {
-    const promotions = verticalGrowthRules[baseType];
-    const candidates = mapTiles.filter(t => t.terrainType === baseType);
-    for (const tile of candidates) {
-      const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
-      for (const promoteTo in promotions) {
-        const rule = promotions[promoteTo];
-        const countSame = neighbors.filter(n => n.terrainType === baseType).length;
-        if (countSame >= rule.threshold && Math.random() < rule.chance) {
-          tile.terrainType = promoteTo;
+export function applyVerticalIslandGrowth(mapTiles, verticalGrowthRules = {}, iterations = 3) {
+  for (let step = 0; step < iterations; step++) {
+    for (const baseType in verticalGrowthRules) {
+      const promotions = verticalGrowthRules[baseType];
+      const candidates = mapTiles.filter(t => t.terrainType === baseType);
+      for (const tile of candidates) {
+        const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
+        for (const promoteTo in promotions) {
+          const rule = promotions[promoteTo];
+          const countSame = neighbors.filter(n => n.terrainType === baseType).length;
+          if (countSame >= rule.threshold && Math.random() < rule.chance) {
+            tile.terrainType = promoteTo;
+            break;
+          }
         }
       }
     }
@@ -156,11 +159,10 @@ export function applySurfAndDeepPass(mapTiles) {
 
   pendingSurf.forEach(t => t.terrainType = 'surf');
 
-  // 🌊 Deep water pass (simple): mark distant water as deep
   for (const tile of mapTiles) {
     if (tile.terrainType !== 'water') continue;
     const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
-    const hasSurfOrLand = neighbors.some(n => ['surf', 'land', 'hill', 'mount'].includes(n.terrainType));
+    const hasSurfOrLand = neighbors.some(n => ['surf', 'land', 'hill', 'mount', 'peak' ].includes(n.terrainType));
     if (!hasSurfOrLand && rng() < 0.5) {
       tile.terrainType = 'deep';
     }
