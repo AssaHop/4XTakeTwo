@@ -5,21 +5,21 @@ import {
   clusterizeTerrain,
   createSeededRNG,
   applyVerticalIslandGrowth,
-  applySurfAndDeepPass
-} from './terrainGen.js';
+  applyLandToHillFilter,
+  applyWaterToDeepFilter,
+  applySurfRim
+} from './terrainGen.js'; // 🛠️ добавлен applySurfRim
 import { generateZonalIslands } from './islandBuilder.js';
 
-// 🔁 Импорт профилей карт
 import { defaultIsland } from './mapProfiles/defaultIsland.js';
 import { strait } from './mapProfiles/strait.js';
 
 export const mapProfiles = {
   defaultIsland,
   strait,
-  default: defaultIsland // ✅ алиас для совместимости
+  default: defaultIsland
 };
 
-// 🎲 Шейпы для зональной генерации
 const shapePresets = {
   blob: [
     { q: 0, r: 0 }, { q: 1, r: 0 }, { q: -1, r: 0 },
@@ -36,41 +36,54 @@ const shapePresets = {
   ]
 };
 
-/**
- * Генерация карты по ID профиля
- * @param {string} profileId - ключ профиля (например, "defaultIsland")
- * @param {number} size - радиус карты
- * @param {number} seed - сид для генерации (можно Date.now())
- * @returns {Array[]} Карта — массив строк с гексами
- */
 export function generateMapByProfile(profileId = 'defaultIsland', size = 15, seed = Date.now()) {
   const profile = mapProfiles[profileId];
   if (!profile) throw new Error(`❌ Unknown map profile: ${profileId}`);
 
   const map = generateHexMap(size, 0, 0);
   const rng = createSeededRNG(seed);
+  const scaleFactor = (size / 15) * (profile.scaleModifier || 1);
 
-  // 🏓 Генерация островов новым способом, если задано
   if (profile.zonalIslands && Array.isArray(profile.zonalIslands)) {
-    generateZonalIslands(map.flat(), profile.zonalIslands, shapePresets, {
+    const scaledZonalIslands = profile.zonalIslands.map(zone => ({
+      ...zone,
+      count: Math.max(1, Math.floor((zone.count || 1) * scaleFactor))
+    }));
+
+    generateZonalIslands(map.flat(), scaledZonalIslands, shapePresets, {
       seed,
       growChance: profile.growChance,
       growIterations: profile.growIterations
     });
   }
 
-  // 🗓 Кластеризация
   clusterizeTerrain(map.flat(), profile.clusterIntensity, rng);
 
-  // 🧱 Вертикальный рост островов по правилам
+  // 🧱 Фаза 1: рост land → hill
   applyVerticalIslandGrowth(
     map.flat(),
-    profile.verticalGrowthRules || {},
-    profile.verticalIterations || 5
+    { land: profile.verticalGrowthRules?.land },
+    2
   );
 
-  // 🌊 Генерация обводки и глубинной воды
-  applySurfAndDeepPass(map.flat());
+  // 🔧 Фаза 2: зашиваем land окружённые hill
+  applyLandToHillFilter(map.flat(), 1);
+
+  // 🏔️ Фаза 3: рост hill → mount → peak
+  applyVerticalIslandGrowth(
+    map.flat(),
+    {
+      hill: profile.verticalGrowthRules?.hill,
+      mount: profile.verticalGrowthRules?.mount
+    },
+    3
+  );
+
+  // 🌊 Фаза 4: обводка суши surf
+  applySurfRim(map.flat(), 0.3); // 🎯 добавлено обратно
+
+  // 🌊 Фаза 5: финальный deep-pass
+  applyWaterToDeepFilter(map.flat(), 0.6);
 
   return map;
 }

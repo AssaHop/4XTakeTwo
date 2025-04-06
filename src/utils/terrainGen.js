@@ -134,15 +134,62 @@ export function applyVerticalIslandGrowth(mapTiles, verticalGrowthRules = {}, it
 }
 
 /* ----------------------------------------------
-   🌊 SURF GENERATION + DEEP PASS
+   🏔️ HILL POLISH FILTER
 ------------------------------------------------ */
 
-export function applySurfAndDeepPass(mapTiles) {
-  const rng = Math.random;
-  const pendingSurf = new Set();
-  const waterTiles = mapTiles.filter(t => t.terrainType === 'water');
+export function applyLandToHillFilter(mapTiles, chance = 1) {
+  for (const tile of mapTiles) {
+    if (tile.terrainType !== 'land') continue;
 
-  for (const tile of waterTiles) {
+    const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
+
+    // ✅ Только если 6 из 6 соседей — hill
+    const hillCount = neighbors.filter(n => n.terrainType === 'hill').length;
+    if (hillCount === 6 && Math.random() < chance) {
+      tile.terrainType = 'hill';
+    }
+  }
+}
+
+/* ----------------------------------------------
+   🌊 DEEP POLISH FILTER
+------------------------------------------------ */
+
+export function applyWaterToDeepFilter(mapTiles, chance = 0.5) {
+  for (const tile of mapTiles) {
+    if (tile.terrainType !== 'water') continue;
+
+    const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
+
+    const allWaterOrDeep = neighbors.every(n =>
+      n.terrainType === 'water' || n.terrainType === 'deep'
+    );
+
+    const allDeepOrWaterAround = neighbors.every(n =>
+      !['land', 'hill', 'mount', 'peak', 'surf'].includes(n.terrainType)
+    );
+
+    const hasMinWaterRing = neighbors.filter(n =>
+      ['water', 'deep'].includes(n.terrainType)
+    ).length >= 5;
+
+    if (allWaterOrDeep && allDeepOrWaterAround && hasMinWaterRing && Math.random() < chance) {
+      tile.terrainType = 'deep';
+    }
+  }
+}
+
+
+/* ----------------------------------------------
+   🌊 SURF GENERATION AROUND ISLANDS
+------------------------------------------------ */
+
+export function applySurfRim(mapTiles, chance = 0.3) {
+  const pendingSurf = new Set();
+
+  for (const tile of mapTiles) {
+    if (tile.terrainType !== 'water') continue;
+
     const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
     const hasLand = neighbors.some(n => ['land', 'hill'].includes(n.terrainType));
     const hasMount = neighbors.some(n => n.terrainType === 'mount');
@@ -151,22 +198,13 @@ export function applySurfAndDeepPass(mapTiles) {
       tile.terrainType = 'surf';
     } else {
       const surfCount = neighbors.filter(n => n.terrainType === 'surf').length;
-      if (surfCount >= 2 && rng() < 0.3) {
+      if (surfCount >= 2 && Math.random() < chance) {
         pendingSurf.add(tile);
       }
     }
   }
 
   pendingSurf.forEach(t => t.terrainType = 'surf');
-
-  for (const tile of mapTiles) {
-    if (tile.terrainType !== 'water') continue;
-    const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
-    const hasSurfOrLand = neighbors.some(n => ['surf', 'land', 'hill', 'mount', 'peak' ].includes(n.terrainType));
-    if (!hasSurfOrLand && rng() < 0.5) {
-      tile.terrainType = 'deep';
-    }
-  }
 }
 
 /* ----------------------------------------------
