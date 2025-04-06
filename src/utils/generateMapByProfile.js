@@ -3,11 +3,9 @@
 import { generateHexMap } from '../world/map.js';
 import {
   clusterizeTerrain,
-  applySpawnRules,
   createSeededRNG,
   applyVerticalIslandGrowth
 } from './terrainGen.js';
-import { terrainPresets } from './terrainPresets.js';
 import { generateZonalIslands } from './islandBuilder.js';
 
 // 🔁 Импорт профилей карт
@@ -35,7 +33,7 @@ const shapePresets = {
   ]
 };
 
-// 🧗 Настройка вертикального роста на базе плотности террейна
+// 🧗 Настройка вертикального роста
 const verticalGrowthRules = {
   land: {
     hill: { threshold: 6, chance: 0.5 },
@@ -58,14 +56,9 @@ export function generateMapByProfile(profileId = 'defaultIsland', size = 15, see
   const profile = mapProfiles[profileId];
   if (!profile) throw new Error(`❌ Unknown map profile: ${profileId}`);
 
-  const preset = terrainPresets[profile.terrainPresetKey];
-  if (!preset) throw new Error(`❌ Unknown terrain preset: ${profile.terrainPresetKey}`);
-
-  // 🗈 Генерация карты
   const map = generateHexMap(size, 0, 0);
   const rng = createSeededRNG(seed);
 
-  // 🏓 Генерация островов новым способом, если задано
   if (profile.zonalIslands && Array.isArray(profile.zonalIslands)) {
     generateZonalIslands(map.flat(), profile.zonalIslands, shapePresets, {
       seed,
@@ -74,20 +67,7 @@ export function generateMapByProfile(profileId = 'defaultIsland', size = 15, see
     });
   }
 
-  // 🗓 Кластеризация
   clusterizeTerrain(map.flat(), profile.clusterIntensity, rng);
-
-  // ⟳ Применение правил спауна
-  map.flat().forEach(tile => {
-    applySpawnRules(tile, map, {
-      spawnRules: {
-        ...preset.spawnRules,
-        ...profile.spawnRules
-      }
-    });
-  });
-
-  // 🧱 Вертикальный рост островов по правилам
   applyVerticalIslandGrowth(map.flat(), verticalGrowthRules);
 
   return map;

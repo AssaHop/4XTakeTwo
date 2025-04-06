@@ -9,9 +9,9 @@ import { getTile } from '../world/map.js';
 export function generateTerrainClusters(mapTiles, options = {}) {
   const {
     seed = Date.now(),
-    seedCount = 20,
-    growIterations = 2,
-    growChance = 0.5,
+    seedCount = 120,
+    growIterations = 12,
+    growChance = 1,
     seedZones = []
   } = options;
 
@@ -111,39 +111,6 @@ export function clusterizeTerrain(mapTiles, intensity = 0.6, rng = Math.random) 
 }
 
 /* ----------------------------------------------
-   🧠 TERRAIN SPAWN VALIDATION
------------------------------------------------- */
-
-export function applySpawnRules(tile, mapTiles, rules) {
-  const rule = rules.spawnRules[tile.terrainType];
-  if (!rule) return;
-
-  const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
-  let conditionMet = true;
-
-  if (rule.condition) {
-    const conditions = rule.condition.split(',');
-    const matched = neighbors.filter(n => conditions.includes(n.terrainType));
-    if (rule.requiredNeighbors && matched.length < rule.requiredNeighbors) conditionMet = false;
-    else if (!rule.requiredNeighbors && matched.length === 0) conditionMet = false;
-  }
-
-  if (rule.prohibitedNeighbors) {
-    const prohibited = rule.prohibitedNeighbors.split(',');
-    const conflict = neighbors.some(n => prohibited.includes(n.terrainType));
-    if (conflict) conditionMet = false;
-  }
-
-  if (rule.probability !== undefined && Math.random() > rule.probability) {
-    conditionMet = false;
-  }
-
-  if (!conditionMet) {
-    tile.terrainType = rule.fallback || 'water';
-  }
-}
-
-/* ----------------------------------------------
    🧱 VERTICAL ISLAND GROWTH (NEW)
 ------------------------------------------------ */
 
@@ -177,31 +144,4 @@ export function createSeededRNG(seed) {
     x = Math.sin(x) * 10000;
     return x - Math.floor(x);
   };
-}
-
-/* ----------------------------------------------
-   🪡 TERRAIN POOL (legacy support)
------------------------------------------------- */
-
-export function createTerrainPool(totalHexes, terrainDistribution) {
-  const pool = [];
-  Object.entries(terrainDistribution).forEach(([terrain, range]) => {
-    const min = Math.floor((range.min / 100) * totalHexes);
-    const max = Math.floor((range.max / 100) * totalHexes);
-    const count = getRandomInt(min, max);
-    for (let i = 0; i < count; i++) pool.push(terrain);
-  });
-  while (pool.length < totalHexes) pool.push('surf');
-  return pool;
-}
-
-export function shuffleArray(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-}
-
-function getRandomInt(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
 }

@@ -5,8 +5,8 @@ export const defaultIsland = {
   name: 'Default Island',
 
   // 🧬 Контроль генерации террейна
-  growIterations: 5,              // 🔁 Кол-во итераций роста кластеров
-  growChance: 1,                  // 🎲 Шанс захвата соседнего гекса
+  growIterations: 15,              // 🔁 Кол-во итераций роста кластеров
+  growChance: 12,                  // 🎲 Шанс захвата соседнего гекса
   clusterIntensity: 0.6,          // 📦 Пост-сглаживание
 
   // 🎲 Новая генерация по зонам
@@ -14,25 +14,25 @@ export const defaultIsland = {
     {
       name: 'topLeft',
       shapes: [
-        { name: 'blob', chance: 1, type: 'land' }
+        { name: 'blob', chance: 50, type: 'land' }
       ]
     },
     {
       name: 'topRight',
       shapes: [
-        { name: 'tail', chance: 1, type: 'land' }
+        { name: 'tail', chance: 0, type: 'land' }
       ]
     },
     {
       name: 'Right',
       shapes: [
-        { name: 'blob', chance: 1, type: 'land' }
+        { name: 'blob', chance: 0, type: 'land' }
       ]
     },
     {
       name: 'centerRight',
       shapes: [
-        { name: 'ridge', chance: 1, type: 'land' }
+        { name: 'ridge', chance: 0, type: 'land' }
       ]
     },
     {

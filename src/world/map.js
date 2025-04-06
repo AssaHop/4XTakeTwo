@@ -1,15 +1,15 @@
 // 📋 src/world/map.js
 
-import {
-  createTerrainPool,
-  shuffleArray,
-  applySpawnRules,
-  generateTerrainClusters
-} from '../utils/terrainGen.js';
-
-import { terrainPresets } from '../utils/terrainPresets.js';
-
 const HEX_RADIUS = 40;
+
+const directions = [
+  { dq: 1, dr: -1, ds: 0 },
+  { dq: 1, dr: 0, ds: -1 },
+  { dq: 0, dr: 1, ds: -1 },
+  { dq: -1, dr: 1, ds: 0 },
+  { dq: -1, dr: 0, ds: 1 },
+  { dq: 0, dr: -1, ds: 1 }
+];
 
 function cubeToPixel(q, r, s, offsetX = 0, offsetY = 0, hexOffsetX = 0, hexOffsetY = 0) {
   const size = HEX_RADIUS;
@@ -46,15 +46,6 @@ function cubeRound({ q, r, s }) {
   return { q: rq, r: rr, s: rs };
 }
 
-const directions = [
-  { dq: 1, dr: -1, ds: 0 },
-  { dq: 1, dr: 0, ds: -1 },
-  { dq: 0, dr: 1, ds: -1 },
-  { dq: -1, dr: 1, ds: 0 },
-  { dq: -1, dr: 0, ds: 1 },
-  { dq: 0, dr: -1, ds: 1 }
-];
-
 function getNeighbors(q, r, s) {
   return directions.map(dir => ({
     q: q + dir.dq,
@@ -65,17 +56,9 @@ function getNeighbors(q, r, s) {
 
 let mapTiles = [];
 
-function generateHexMap(size, offsetX = 0, offsetY = 0, profileKey = 'default') {
-  const preset = terrainPresets[profileKey];
-  if (!preset) throw new Error(`Terrain preset not found: ${profileKey}`);
-
-  const totalHexes = getHexCount(size);
-  const terrainPool = createTerrainPool(totalHexes, preset.terrainDistribution);
-  shuffleArray(terrainPool);
-
+function generateHexMap(size, offsetX = 0, offsetY = 0) {
   const map = [];
   mapTiles = [];
-  let poolIndex = 0;
 
   for (let q = -size; q <= size; q++) {
     const rowArray = [];
@@ -83,10 +66,10 @@ function generateHexMap(size, offsetX = 0, offsetY = 0, profileKey = 'default') 
       const s = -q - r;
       if (Math.abs(s) <= size) {
         const { x, y } = cubeToPixel(q, r, s, offsetX, offsetY);
-        const terrainType = terrainPool[poolIndex++] || 'surf';
 
         const tile = {
-          q, r, s, x, y, terrainType,
+          q, r, s, x, y,
+          terrainType: 'water',
           tags: [],
           neighbors: getNeighbors(q, r, s)
         };
@@ -97,10 +80,6 @@ function generateHexMap(size, offsetX = 0, offsetY = 0, profileKey = 'default') 
     }
     map.push(rowArray);
   }
-
-  // 🎯 Применяем правила генерации и кластеры
-  mapTiles.forEach(tile => applySpawnRules(tile, mapTiles, preset));
-  generateTerrainClusters(mapTiles, preset.clusterConfig);
 
   return map;
 }
