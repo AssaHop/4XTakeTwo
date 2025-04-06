@@ -4,22 +4,22 @@ export const strait = {
   id: 'strait',
   name: 'The Great Strait',
 
-  growIterations: 6,
-  growChance: 0.85,
+  growIterations: 8,
+  growChance: 0.9,
   clusterIntensity: 0.5,
 
   zonalIslands: [
     {
       name: 'topLeft',
-      count: 3,
+      count: 100,
       shapes: [
-        { name: 'blob', chance: 2, type: 'land' },
-        { name: 'ridge', chance: 1, type: 'land' }
+        { name: 'blob', chance: 100, type: 'land' },
+        { name: 'ridge', chance: 500, type: 'land' }
       ]
     },
     {
       name: 'topRight',
-      count: 3,
+      count: 0,
       shapes: [
         { name: 'blob', chance: 1, type: 'land' },
         { name: 'tail', chance: 2, type: 'land' }
@@ -27,9 +27,9 @@ export const strait = {
     },
     {
       name: 'centerLeft',
-      count: 2,
+      count: 20,
       shapes: [
-        { name: 'ridge', chance: 3, type: 'land' }
+        { name: 'ridge', chance: 1, type: 'land' }
       ]
     },
     {
@@ -58,7 +58,6 @@ export const strait = {
   ],
 
   terrainPresetKey: 'default',
-
   spawnRules: {},
 
   islandLayers: {
@@ -66,5 +65,17 @@ export const strait = {
     small: ['hill', 'land', 'surf'],
     medium: ['mount', 'hill', 'land', 'surf'],
     large: ['peak', 'mount', 'hill', 'land', 'surf']
+  },
+
+  // 🔼 Правила вертикального роста
+  verticalGrowthRules: {
+    land: {
+      hill: { threshold: 5, chance: 0.7 },
+      mount: { threshold: 10, chance: 0.3 }
+    },
+    hill: {
+      mount: { threshold: 5, chance: 0.4 },
+      peak: { threshold: 8, chance: 0.2 }
+    }
   }
 };

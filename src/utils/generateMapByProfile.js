@@ -35,18 +35,6 @@ const shapePresets = {
   ]
 };
 
-// 🧗 Настройка вертикального роста на базе плотности террейна
-const verticalGrowthRules = {
-  land: {
-    hill: { threshold: 6, chance: 0.5 },
-    mount: { threshold: 10, chance: 0.3 }
-  },
-  hill: {
-    mount: { threshold: 5, chance: 0.4 },
-    peak: { threshold: 8, chance: 0.2 }
-  }
-};
-
 /**
  * Генерация карты по ID профиля
  * @param {string} profileId - ключ профиля (например, "defaultIsland")
@@ -61,7 +49,7 @@ export function generateMapByProfile(profileId = 'defaultIsland', size = 15, see
   const map = generateHexMap(size, 0, 0);
   const rng = createSeededRNG(seed);
 
-  // 🏓 Генерация островов новым способом, если задано
+  // 🏓 Генерация островов
   if (profile.zonalIslands && Array.isArray(profile.zonalIslands)) {
     generateZonalIslands(map.flat(), profile.zonalIslands, shapePresets, {
       seed,
@@ -70,11 +58,22 @@ export function generateMapByProfile(profileId = 'defaultIsland', size = 15, see
     });
   }
 
-  // 🗓 Кластеризация
+  // 📦 Сглаживание кластеров
   clusterizeTerrain(map.flat(), profile.clusterIntensity, rng);
 
-  // 🧱 Вертикальный рост островов по правилам
-  applyVerticalIslandGrowth(map.flat(), verticalGrowthRules);
+  // 🧱 Вертикальный рост островов — если есть кастомные правила
+  const growthRules = profile.verticalGrowthRules || {
+    land: {
+      hill: { threshold: 6, chance: 0.5 },
+      mount: { threshold: 10, chance: 0.3 }
+    },
+    hill: {
+      mount: { threshold: 5, chance: 0.4 },
+      peak: { threshold: 8, chance: 0.2 }
+    }
+  };
+
+  applyVerticalIslandGrowth(map.flat(), growthRules);
 
   return map;
 }
