@@ -2,60 +2,49 @@
 
 import { generateHexMap } from '../world/map.js';
 import {
-  generateTerrainClusters,
   clusterizeTerrain,
   applySpawnRules,
-  applyLayeredIslandRules,
-  createSeededRNG
+  createSeededRNG,
+  applyVerticalIslandGrowth
 } from './terrainGen.js';
 import { terrainPresets } from './terrainPresets.js';
+import { generateZonalIslands } from './islandBuilder.js';
 
 // 🔁 Импорт профилей карт
 import { defaultIsland } from './mapProfiles/defaultIsland.js';
 
 const mapProfiles = {
-    defaultIsland,
-    default: defaultIsland // ✅ алиас для совместимости
-  };
+  defaultIsland,
+  default: defaultIsland // ✅ алиас для совместимости
+};
 
-// 🎲 Шейпы островов (задание seed-зон)
+// 🎲 Шейпы для зональной генерации
 const shapePresets = {
-  round: [
-    { zone: 'center', count: 2, type: 'mount' },
-    { zone: 'center', count: 4, type: 'hill' },
-    { zone: 'left', count: 3, type: 'land' },
-    { zone: 'right', count: 3, type: 'land' }
+  blob: [
+    { q: 0, r: 0 }, { q: 1, r: 0 }, { q: -1, r: 0 },
+    { q: 0, r: 1 }, { q: 0, r: -1 },
+    { q: 1, r: -1 }, { q: -1, r: 1 }
   ],
   tail: [
-    { zone: 'center', count: 1, type: 'peak' },
-    { zone: 'center', count: 2, type: 'mount' },
-    { zone: 'center', count: 3, type: 'hill' },
-    { zone: 'bottom', count: 4, type: 'land' }
-  ],
-  horseshoe: [
-    { zone: 'topLeft', count: 3, type: 'hill' },
-    { zone: 'topRight', count: 3, type: 'hill' },
-    
-  ],
-  split: [
-    { zone: 'topLeft', count: 3, type: 'hill' },
-    { zone: 'bottomRight', count: 3, type: 'mount' }
-  ],
-  bone: [
-    { zone: 'topLeft', count: 3, type: 'mount' },
-    { zone: 'topRight', count: 3, type: 'mount' },
-    { zone: 'bottomLeft', count: 3, type: 'mount' },
-    { zone: 'bottomRight', count: 3, type: 'mount' },
-    { zone: 'center', count: 1, type: 'peak' }
+    { q: 0, r: 0 },
+    { q: 0, r: 1 }, { q: 0, r: 2 },
+    { q: 0, r: 3 }, { q: 1, r: 3 }, { q: -1, r: 3 }
   ],
   ridge: [
-    { zone: 'left', count: 6, type: 'hill' },
-    { zone: 'right', count: 6, type: 'hill' }
-  ],
-  twin: [
-    { zone: 'topLeft', count: 3, type: 'hill' },
-    { zone: 'bottomRight', count: 3, type: 'mount' }
+    { q: -2, r: 0 }, { q: -1, r: 0 }, { q: 0, r: 0 }, { q: 1, r: 0 }, { q: 2, r: 0 }
   ]
+};
+
+// 🧗 Настройка вертикального роста на базе плотности террейна
+const verticalGrowthRules = {
+  land: {
+    hill: { threshold: 6, chance: 0.5 },
+    mount: { threshold: 10, chance: 0.3 }
+  },
+  hill: {
+    mount: { threshold: 5, chance: 0.4 },
+    peak: { threshold: 8, chance: 0.2 }
+  }
 };
 
 /**
@@ -72,38 +61,23 @@ export function generateMapByProfile(profileId = 'defaultIsland', size = 15, see
   const preset = terrainPresets[profile.terrainPresetKey];
   if (!preset) throw new Error(`❌ Unknown terrain preset: ${profile.terrainPresetKey}`);
 
-  // 🎰 Выбор случайного шейпа (если задано)
-  let seedZones = profile.seedZones || [];
-  if (profile.shapes && Array.isArray(profile.shapes)) {
-    const totalWeight = profile.shapes.reduce((sum, s) => sum + (s.chance || 1), 0);
-    const roll = Math.random() * totalWeight;
-    let acc = 0;
-
-    for (const shape of profile.shapes) {
-      acc += shape.chance || 1;
-      if (roll <= acc) {
-        seedZones = shapePresets[shape.name] || seedZones;
-        break;
-      }
-    }
-  }
-
-  // 🗺 Генерация карты
+  // 🗈 Генерация карты
   const map = generateHexMap(size, 0, 0);
   const rng = createSeededRNG(seed);
 
-  // 🌱 Террейн: острова, рост, кластеры
-  generateTerrainClusters(map.flat(), {
-    seed,
-    seedCount: profile.seedCount,
-    growIterations: profile.growIterations,
-    growChance: profile.growChance,
-    seedZones
-  });
+  // 🏓 Генерация островов новым способом, если задано
+  if (profile.zonalIslands && Array.isArray(profile.zonalIslands)) {
+    generateZonalIslands(map.flat(), profile.zonalIslands, shapePresets, {
+      seed,
+      growChance: profile.growChance,
+      growIterations: profile.growIterations
+    });
+  }
 
+  // 🗓 Кластеризация
   clusterizeTerrain(map.flat(), profile.clusterIntensity, rng);
 
-  // 🔁 Правила спауна
+  // ⟳ Применение правил спауна
   map.flat().forEach(tile => {
     applySpawnRules(tile, map, {
       spawnRules: {
@@ -113,8 +87,8 @@ export function generateMapByProfile(profileId = 'defaultIsland', size = 15, see
     });
   });
 
-  // 🧱 Многослойные острова
-  applyLayeredIslandRules(map.flat(), profile.islandLayers);
+  // 🧱 Вертикальный рост островов по правилам
+  applyVerticalIslandGrowth(map.flat(), verticalGrowthRules);
 
   return map;
 }
