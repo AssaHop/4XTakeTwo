@@ -4,7 +4,7 @@ export const strait = {
   id: 'strait',
   name: 'The Great Strait',
 
-  growIterations: 8,
+  growIterations: 18,
   growChance: 0.9,
   clusterIntensity: 0.5,
 
@@ -13,9 +13,8 @@ export const strait = {
       name: 'topLeft',
       count: 100,
       shapes: [
-        { name: 'blob', chance: 100, type: 'land' },
-        { name: 'ridge', chance: 500, type: 'land' }
-      ]
+        { name: 'blob', chance: 1, type: 'land' }
+             ]
     },
     {
       name: 'topRight',
@@ -27,7 +26,7 @@ export const strait = {
     },
     {
       name: 'centerLeft',
-      count: 20,
+      count: 0,
       shapes: [
         { name: 'ridge', chance: 1, type: 'land' }
       ]
@@ -49,7 +48,7 @@ export const strait = {
     },
     {
       name: 'bottomRight',
-      count: 3,
+      count: 33,
       shapes: [
         { name: 'blob', chance: 2, type: 'land' },
         { name: 'tail', chance: 1, type: 'land' }
@@ -70,11 +69,11 @@ export const strait = {
   // 🔼 Правила вертикального роста
   verticalGrowthRules: {
     land: {
-      hill: { threshold: 5, chance: 0.7 },
-      mount: { threshold: 10, chance: 0.3 }
+      hill: { threshold: 4, chance: 0.7 },
+      mount: { threshold: 10, chance: 0.7 }
     },
     hill: {
-      mount: { threshold: 5, chance: 0.4 },
+      mount: { threshold: 5, chance: 0.8 },
       peak: { threshold: 8, chance: 0.2 }
     }
   }

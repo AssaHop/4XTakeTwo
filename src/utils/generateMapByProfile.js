@@ -8,14 +8,13 @@ import {
 } from './terrainGen.js';
 import { generateZonalIslands } from './islandBuilder.js';
 
-// 🔁 Импорт профилей карт
 import { defaultIsland } from './mapProfiles/defaultIsland.js';
 import { strait } from './mapProfiles/strait.js';
 
 export const mapProfiles = {
   defaultIsland,
   strait,
-  default: defaultIsland // ✅ алиас для совместимости
+  default: defaultIsland
 };
 
 // 🎲 Шейпы для зональной генерации
@@ -49,7 +48,7 @@ export function generateMapByProfile(profileId = 'defaultIsland', size = 15, see
   const map = generateHexMap(size, 0, 0);
   const rng = createSeededRNG(seed);
 
-  // 🏓 Генерация островов
+  // 🏝 Генерация островов из зон
   if (profile.zonalIslands && Array.isArray(profile.zonalIslands)) {
     generateZonalIslands(map.flat(), profile.zonalIslands, shapePresets, {
       seed,
@@ -61,19 +60,8 @@ export function generateMapByProfile(profileId = 'defaultIsland', size = 15, see
   // 📦 Сглаживание кластеров
   clusterizeTerrain(map.flat(), profile.clusterIntensity, rng);
 
-  // 🧱 Вертикальный рост островов — если есть кастомные правила
-  const growthRules = profile.verticalGrowthRules || {
-    land: {
-      hill: { threshold: 6, chance: 0.5 },
-      mount: { threshold: 10, chance: 0.3 }
-    },
-    hill: {
-      mount: { threshold: 5, chance: 0.4 },
-      peak: { threshold: 8, chance: 0.2 }
-    }
-  };
-
-  applyVerticalIslandGrowth(map.flat(), growthRules);
+  // ⛰️ Рост вверх — hill, mount, peak
+  applyVerticalIslandGrowth(map.flat(), profile.verticalGrowthRules || {});
 
   return map;
 }

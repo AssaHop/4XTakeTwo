@@ -115,20 +115,22 @@ export function clusterizeTerrain(mapTiles, intensity = 0.6, rng = Math.random) 
 ------------------------------------------------ */
 
 export function applyVerticalIslandGrowth(mapTiles, verticalGrowthRules = {}) {
-  const growthOrder = ['land', 'hill', 'mount', 'peak'];
+  for (const baseType in verticalGrowthRules) {
+    const promotions = verticalGrowthRules[baseType];
 
-  for (const currentType of growthOrder) {
-    const rule = verticalGrowthRules[currentType];
-    if (!rule) continue;
-
-    const candidates = mapTiles.filter(t => t.terrainType === currentType);
+    const candidates = mapTiles.filter(t => t.terrainType === baseType);
 
     for (const tile of candidates) {
       const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
-      const countSame = neighbors.filter(n => n.terrainType === currentType).length;
 
-      if (countSame >= rule.threshold && Math.random() < rule.chance) {
-        tile.terrainType = rule.promoteTo;
+      for (const promoteTo in promotions) {
+        const rule = promotions[promoteTo];
+        const countSame = neighbors.filter(n => n.terrainType === baseType).length;
+
+        // 🎲 Шанс повышения уровня террейна
+        if (countSame >= rule.threshold && Math.random() < rule.chance) {
+          tile.terrainType = promoteTo;
+        }
       }
     }
   }
