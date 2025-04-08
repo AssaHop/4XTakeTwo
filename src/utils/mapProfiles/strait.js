@@ -4,55 +4,95 @@ export const strait = {
   id: 'strait',
   name: 'The Great Strait',
 
-  growIterations: 10,
-  growChance: 0.9,
-  clusterIntensity: 0.9,
+  growIterations: 0,
+  growChance: 0.0,
+  clusterIntensity: 0.001,
 // 🔢 Модификатор масштаба генерации
-scaleModifier: 1.4,
+scaleModifier: 1.5,
 
   zonalIslands: [
     {
       name: 'topLeft',
-      count: 15,
+      count: 1,
       shapes: [
-        { name: 'blob', chance: 1, type: 'land' }
+        { name: 'bone', chance: 1, type: 'land' }
+        //{ name: 'blob', chance: 1, type: 'land' }
+        //{ name: 'tail', chance: 1, type: 'land' }
       ]
     },
     {
       name: 'topRight',
       count: 1,
       shapes: [
-                { name: 'tail', chance: 1, type: 'land' }
+        { name: 'bone', chance: 1, type: 'land' }
+        //{ name: 'blob', chance: 1, type: 'land' }
+        //{ name: 'tail', chance: 1, type: 'land' }
       ]
     },
     {
       name: 'centerLeft',
-      count: 0,
+      count: 1,
       shapes: [
-        { name: 'ridge', chance: 1, type: 'land' }
+        { name: 'bone', chance: 1, type: 'land' }
+        //{ name: 'blob', chance: 1, type: 'land' }
+        
       ]
     },
     {
       name: 'centerRight',
-      count: 0,
+      count: 1,
       shapes: [
-        { name: 'ridge', chance: 3, type: 'land' }
+        //{ name: 'blob', chance: 1, type: 'land' }
+        { name: 'bone', chance: 1, type: 'land' }
       ]
     },
     {
       name: 'bottomLeft',
-      count: 3,
+      count: 1,
       shapes: [
-        { name: 'blob', chance: 2, type: 'land' },
-        { name: 'tail', chance: 1, type: 'land' }
+        { name: 'tailUpLeft', chance: 1, type: 'land' }
+        //{ name: 'bone', chance: 1, type: 'land' }
+             ]
+    },
+    {
+      name: 'left',
+      count: 1,
+      shapes: [
+        { name: 'tailBend', chance: 1, type: 'land' }
+        //{ name: 'blob', chance: 1, type: 'land' }
       ]
     },
     {
-      name: 'bottomRight',
-      count: 10,
+      name: 'right',
+      count: 1,
       shapes: [
-        { name: 'blob', chance: 2, type: 'land' },
-        { name: 'tail', chance: 1, type: 'land' }
+        //{ name: 'blob', chance: 1, type: 'land' }
+        { name: 'tailBend', chance: 1, type: 'land' }
+      ]
+    },
+        {
+      name: 'bottomRight',
+      count: 1,
+      shapes: [
+        //{ name: 'blob', chance: 1, type: 'land' }
+        { name: 'bone', chance: 1, type: 'land' }
+      ]
+    },
+    {
+      name: 'topEdge',
+      count: 1,
+      shapes: [
+        //{ name: 'blob', chance: 1, type: 'land' }
+        { name: 'bone', chance: 1, type: 'land' }
+        //{ name: 'tail', chance: 0, type: 'land' }
+      ]
+    },
+    {
+      name: 'bottomEdge',
+      count: 1,
+      shapes: [
+        //{ name: 'blob', chance: 1, type: 'land' }
+        { name: 'bone', chance: 0, type: 'land' }
       ]
     }
   ],
@@ -60,12 +100,12 @@ scaleModifier: 1.4,
   terrainPresetKey: 'default',
   spawnRules: {},
 
-  islandLayers: {
-    micro: ['land', 'surf'],
-    small: ['hill', 'land', 'surf'],
-    medium: ['mount', 'hill', 'land', 'surf'],
-    large: ['peak', 'mount', 'hill', 'land', 'surf']
-  },
+ // islandLayers: {
+    //micro: ['land', 'surf'],
+    //small: ['hill', 'land', 'surf'],
+   // medium: ['mount', 'hill', 'land', 'surf'],
+    //large: ['peak', 'mount', 'hill', 'land', 'surf']
+  //},
 
   // 🔼 Правила вертикального роста
   verticalGrowthRules: {
@@ -76,7 +116,7 @@ scaleModifier: 1.4,
       mount: { threshold: 4, chance: 0.3 },
     },
     mount: {
-      peak: { threshold: 6, chance: 0.3 }
+      peak: { threshold: 4, chance: 0.3 }
     }
   },
 
