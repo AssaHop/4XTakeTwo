@@ -19,7 +19,7 @@ export const mapProfiles = {
   default: defaultIsland
 };
 
-const shapePresets = {
+export const shapePresets = {
   blob: [
     { q: 0, r: 0, s: 0 },
     { q: 1, r: 0, s: -1 },
@@ -54,7 +54,7 @@ const shapePresets = {
     { q: -1, r: 1, s: 0 },
     { q: -1, r: 0, s: 1 }
   ],
-  bone: [ 
+  bone: [
     { q: 0, r: -1, s: 1 },
     { q: -1, r: 0, s: 1 },
     { q: -1, r: 1, s: 0 },
@@ -72,23 +72,22 @@ const shapePresets = {
   ]
 };
 
-
 export function generateMapByProfile(profileId = 'defaultIsland', size = 15, seed = Date.now()) {
   const profile = mapProfiles[profileId];
   if (!profile) throw new Error(`❌ Unknown map profile: ${profileId}`);
 
   const map = generateHexMap(size, 0, 0);
   const rng = createSeededRNG(seed);
-  const scaleFactor = (size / 15) * (profile.scaleModifier || 1);
+  const scaleFactor = (size / 14) * (profile.scaleModifier || 1);
 
+  // 🧩 Zonal island generation
   if (profile.zonalIslands && Array.isArray(profile.zonalIslands)) {
     const scaledZonalIslands = profile.zonalIslands.map(zone => ({
       ...zone,
-      count: Math.max(1, Math.floor((zone.count || 1) * scaleFactor))
+      count: zone.count === 0 ? 0 : Math.max(1, Math.floor(zone.count * scaleFactor))
     }));
-  
-    // 🔍 Логим каждый shapePreset, который реально будет использоваться
-    for (const zone of scaledZonalIslands) {
+
+    scaledZonalIslands.forEach(zone => {
       for (const shape of zone.shapes) {
         const deltas = shapePresets[shape.name];
         if (!deltas) {
@@ -97,43 +96,44 @@ export function generateMapByProfile(profileId = 'defaultIsland', size = 15, see
           console.log(`📐 [${zone.name}] Shape "${shape.name}" deltas:`, deltas);
         }
       }
-    }
-  
-    generateZonalIslands(map.flat(), scaledZonalIslands, shapePresets, {
+      console.log(`🧭 [${zone.name}] scaledCount: ${zone.count}`);
+    });
+
+    const activeZones = scaledZonalIslands.filter(zone => zone.count > 0);
+
+    generateZonalIslands(map.flat(), activeZones, shapePresets, {
       seed,
       growChance: profile.growChance,
       growIterations: profile.growIterations
     });
   }
-  
 
+  // 🎨 Cluster terrain
   clusterizeTerrain(map.flat(), profile.clusterIntensity, rng);
 
-  // 🧱 Фаза 1: рост land → hill
-  applyVerticalIslandGrowth(
-    map.flat(),
-    { land: profile.verticalGrowthRules?.land },
-    2
-  );
+  // 🪨 Phase 1: grow land → hill
+  applyVerticalIslandGrowth(map.flat(), { land: profile.verticalGrowthRules?.land }, 2);
 
-  // 🔧 Фаза 2: зашиваем land окружённые hill
+  // 🧱 Phase 2: fill land surrounded by hill
   applyLandToHillFilter(map.flat(), 1);
 
-  // 🏔️ Фаза 3: рост hill → mount → peak
-  applyVerticalIslandGrowth(
-    map.flat(),
-    {
-      hill: profile.verticalGrowthRules?.hill,
-      mount: profile.verticalGrowthRules?.mount
-    },
-    3
-  );
+  // ⛰️ Phase 3: hill → mount → peak
+  applyVerticalIslandGrowth(map.flat(), {
+    hill: profile.verticalGrowthRules?.hill,
+    mount: profile.verticalGrowthRules?.mount
+  }, 3);
 
-  // 🌊 Фаза 4: обводка суши surf
-  applySurfRim(map.flat(), 0.1); // 🎯 добавлено обратно
+  // 🌊 Phase 4: rim
+  applySurfRim(map.flat(), 0.1);
 
-  // 🌊 Фаза 5: финальный deep-pass
+  // 🌊 Phase 5: deep sea pass
   applyWaterToDeepFilter(map.flat(), 0.76);
+
+  const landTiles = map.flat().filter(t => t.terrainType === 'land');
+  console.log(`🧮 Total land tiles after zonal generation: ${landTiles.length}`);
+  landTiles.forEach(t => {
+    console.log(`🔍 LAND TILE at (${t.q}, ${t.r}, ${t.s})`);
+  });
 
   return map;
 }

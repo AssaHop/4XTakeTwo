@@ -2,55 +2,93 @@ export const defaultIsland = {
   id: 'defaultIsland',
   name: 'Debug Island',
 
-  growIterations: 6,
-  growChance: 0.85,
-  clusterIntensity: 0.5,
+  growIterations: 0,
+  growChance: 0,
+  clusterIntensity: 0,
 
   zonalIslands: [
     {
       name: 'topLeft',
-      count: 3,
+      count: 0,
       shapes: [
-        { name: 'blob', chance: 2, type: 'land' },
-        { name: 'ridge', chance: 1, type: 'land' }
+        { name: 'bone', chance: 1, type: 'land' }
+        //{ name: 'blob', chance: 1, type: 'land' }
+        //{ name: 'tail', chance: 1, type: 'land' }
       ]
     },
     {
       name: 'topRight',
-      count: 3,
+      count: 0,
       shapes: [
-        { name: 'blob', chance: 1, type: 'land' },
-        { name: 'tail', chance: 2, type: 'land' }
+        { name: 'bone', chance: 1, type: 'land' }
+        //{ name: 'blob', chance: 1, type: 'land' }
+        //{ name: 'tail', chance: 1, type: 'land' }
       ]
     },
     {
       name: 'centerLeft',
-      count: 2,
+      count: 1,
       shapes: [
-        { name: 'ridge', chance: 3, type: 'land' }
+        { name: 'bone', chance: 1, type: 'land' }
+        //{ name: 'blob', chance: 1, type: 'land' }
+        
       ]
     },
     {
       name: 'centerRight',
-      count: 2,
+      count: 0,
       shapes: [
-        { name: 'ridge', chance: 3, type: 'land' }
+        //{ name: 'blob', chance: 1, type: 'land' }
+        { name: 'bone', chance: 1, type: 'land' }
       ]
     },
     {
       name: 'bottomLeft',
-      count: 3,
+      count: 0,
       shapes: [
-        { name: 'blob', chance: 2, type: 'land' },
-        { name: 'tail', chance: 1, type: 'land' }
+        { name: 'tailUpLeft', chance: 1, type: 'land' }
+        //{ name: 'bone', chance: 1, type: 'land' }
+             ]
+    },
+    {
+      name: 'left',
+      count: 0,
+      shapes: [
+        { name: 'tailBend', chance: 1, type: 'land' }
+        //{ name: 'blob', chance: 1, type: 'land' }
       ]
     },
     {
-      name: 'bottomRight',
-      count: 3,
+      name: 'right',
+      count: 0,
       shapes: [
-        { name: 'blob', chance: 2, type: 'land' },
-        { name: 'tail', chance: 1, type: 'land' }
+        //{ name: 'blob', chance: 1, type: 'land' }
+        { name: 'tailBend', chance: 1, type: 'land' }
+      ]
+    },
+        {
+      name: 'bottomRight',
+      count: 0,
+      shapes: [
+        //{ name: 'blob', chance: 1, type: 'land' }
+        { name: 'bone', chance: 1, type: 'land' }
+      ]
+    },
+    {
+      name: 'topEdge',
+      count: 0,
+      shapes: [
+        //{ name: 'blob', chance: 1, type: 'land' }
+        { name: 'bone', chance: 1, type: 'land' }
+        //{ name: 'tail', chance: 0, type: 'land' }
+      ]
+    },
+    {
+      name: 'bottomEdge',
+      count: 0,
+      shapes: [
+        //{ name: 'blob', chance: 1, type: 'land' }
+        { name: 'bone', chance: 0, type: 'land' }
       ]
     }
   ],
