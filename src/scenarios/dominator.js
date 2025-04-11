@@ -21,7 +21,7 @@ export const dominator = {
 
     if (p1_1) units.push({ ...p1_1, type: 'WDD', owner: 'player1' });
     if (p1_2) units.push({ ...p1_2, type: 'WCC', owner: 'player1' });
-
+    
     for (let i = 0; i < enemyCount; i++) {
       const hex = getRandomFreeHex(enemySpawns, units);
       if (hex) {

@@ -6,6 +6,7 @@ import { setupEndTurnButton, updateEndTurnButton } from './uiControls.js';
 import { renderUnits } from './render.js';
 import { highlightUnitContext } from './highlightManager.js';
 import { performAttack } from '../core/combatLogic.js';
+import { runAIForAllUnits } from '../ai/ai.js'; // ✅ AI подключен
 
 const squashFactor = 0.7;
 
@@ -80,11 +81,21 @@ function handleCanvasClick(event) {
 
 function handleEndTurn() {
   console.log('🔚 End turn clicked');
+
+  // Сбросить действия игроков
   state.units.forEach(unit => unit.resetActions());
   state.hasActedThisTurn = false;
   updateEndTurnButton();
+
+  // Переход во вражеский ход
   transitionTo(GameState.ENEMY_TURN);
-  setTimeout(() => transitionTo(GameState.IDLE), 200);
+
+  // ✅ AI активен после паузы
+  setTimeout(() => {
+    runAIForAllUnits();
+    updateEndTurnButton(); // обновить статус кнопки
+    transitionTo(GameState.IDLE); // вернуться к игроку
+  }, 300);
 }
 
 export { setupEventListeners };

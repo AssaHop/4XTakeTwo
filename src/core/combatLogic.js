@@ -76,6 +76,7 @@ function canAttack(attacker, target) {
   const dz = Math.abs(attacker.s - target.s);
 
   return dx <= range && dy <= range && dz <= range;
+  console.log(`💀 [KILL] ${unit.type} (${unit.q},${unit.r},${unit.s}) removed`);
 }
 
 export { performAttack, canAttack };

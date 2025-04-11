@@ -88,10 +88,10 @@ export const defaultIsland = {
   // 🔼 Правила вертикального роста
   verticalGrowthRules: {
     land: {
-      hill: { threshold: 3, chance: 0.8 },
+      hill: { threshold: 2, chance: 0.8 },
     },
     hill: {
-      mount: { threshold: 4, chance: 0.4 },
+      mount: { threshold: 3, chance: 0.7 },
     },
     mount: {
       peak: { threshold: 4, chance: 0.3 }
