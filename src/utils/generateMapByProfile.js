@@ -20,15 +20,18 @@ export const mapProfiles = {
 };
 
 export const shapePresets = {
-  blob: [
-    { q: 0, r: 0, s: 0 },
-    { q: 1, r: 0, s: -1 },
-    { q: -1, r: 0, s: 1 },
-    { q: 0, r: 1, s: -1 },
-    { q: 0, r: -1, s: 1 },
-    { q: 1, r: -1, s: 0 },
-    { q: -1, r: 1, s: 0 }
-  ],
+  dot: [
+    { q: 0, r: 0, s: 0 }
+     ],
+  //blob: [
+    //{ q: 0, r: 0, s: 0 },
+    //{ q: 1, r: 0, s: -1 },
+    //{ q: -1, r: 0, s: 1 },
+    //{ q: 0, r: 1, s: -1 },
+    //{ q: 0, r: -1, s: 1 },
+    //{ q: 1, r: -1, s: 0 },
+    //{ q: -1, r: 1, s: 0 }
+  //],
   tail: [
     { q: 0, r: 0, s: 0 },
     { q: 0, r: 1, s: -1 },
@@ -55,21 +58,43 @@ export const shapePresets = {
     { q: -1, r: 0, s: 1 }
   ],
   bone: [
-    { q: 0, r: -1, s: 1 },
+    { q: -1, r: -1, s: 2 },
     { q: -1, r: 0, s: 1 },
-    { q: -1, r: 1, s: 0 },
+    { q: -2, r: 1, s: 1 },
     { q: 0, r: 0, s: 0 },
-    { q: 0, r: 1, s: -1 },
     { q: 1, r: 0, s: -1 },
-    { q: 1, r: -1, s: 0 }
+    { q: 2, r: -1, s: -1 },
+    { q: 1, r: 1, s: -2 }
   ],
-  ridge: [
+  yr: [
+    { q: 0, r: 0, s: 0 },
     { q: -2, r: 0, s: 2 },
     { q: -1, r: 0, s: 1 },
+    { q: 1, r: -1, s: 0 },
+    { q: 2, r: -1, s: -1 },
+    { q: 0, r: 1, s: -1 },
+    { q: 0, r: 2, s: -2 }
+  ],
+  tailrd: [
+    { q: 0, r: -1, s: 1 },
+    { q: 1, r: -1, s: 0 },
     { q: 0, r: 0, s: 0 },
     { q: 1, r: 0, s: -1 },
-    { q: 2, r: 0, s: -2 }
-  ]
+    { q: 1, r: 1, s: -2 },
+    { q: 1, r: 2, s: -3 }
+  ],
+  scorp: [
+    { q: 1, r: -3, s: 2 },
+    { q: 0, r: -2, s: 2 },
+    { q: 0, r: -1, s: 1 },
+    { q: -1, r: 0, s: 1 },
+    { q: 0, r: 0, s: 0 },
+    { q: 1, r: 0, s: -1 },
+    { q: -1, r: 1, s: 0 },
+    { q: 1, r: 1, s: -2 },
+    { q: 2, r: 1, s: -3 },
+  ],
+
 };
 
 export function generateMapByProfile(profileId = 'defaultIsland', size = 15, seed = Date.now()) {
@@ -104,7 +129,8 @@ export function generateMapByProfile(profileId = 'defaultIsland', size = 15, see
     generateZonalIslands(map.flat(), activeZones, shapePresets, {
       seed,
       growChance: profile.growChance,
-      growIterations: profile.growIterations
+      growIterations: profile.growIterations,
+      mapSize: size
     });
   }
 

@@ -5,28 +5,35 @@ export function generateZonalIslands(mapTiles, zones, shapePresets, options = {}
   const {
     seed = Date.now(),
     growChance = 0.5,
-    growIterations = 3
+    growIterations = 3,
+    mapSize
   } = options;
 
   const rng = createSeededRNG(seed);
   const usedTiles = new Set();
 
   for (const zone of zones) {
-    const zoneTiles = filterZone(mapTiles, zone.name);
-    if (!zoneTiles.length) continue;
+    const zoneTiles = filterZone(mapTiles, zone.name, mapSize);
+    if (!zoneTiles.length) {
+      console.warn(`⚠️ No tiles found for zone: ${zone.name}`);
+      continue;
+    }
 
     const count = zone.count || 1;
 
     for (let i = 0; i < count; i++) {
       const origin = zoneTiles[Math.floor(rng() * zoneTiles.length)];
       const shape = rollShape(zone.shapes, rng);
-      const deltas = shapePresets[shape.name];
-
-      if (!deltas) {
-        console.warn(`❗ Shape not found in presets: ${shape.name} → using no tiles`);
-        console.warn(`Zone: ${zone.name} | Available:`, Object.keys(shapePresets));
+      if (!shape || !shape.name) {
+        console.warn(`❗ No shape rolled for zone "${zone.name}"`);
+        continue;
       }
-      if (!origin || !deltas) continue;
+
+      const deltas = shapePresets[shape.name];
+      if (!deltas) {
+        console.warn(`❗ Shape not found in presets: ${shape.name}`);
+        continue;
+      }
 
       const seeds = [];
 
@@ -40,6 +47,10 @@ export function generateZonalIslands(mapTiles, zones, shapePresets, options = {}
 
         const tile = getTile(q, r, s);
         if (tile) {
+          if (!mapTiles.includes(tile)) {
+            console.warn('‼️ This tile is not part of the mapTiles array!', tile);
+          }
+
           tile.terrainType = shape.type || 'land';
           usedTiles.add(key);
           seeds.push(tile);
@@ -72,13 +83,14 @@ export function generateZonalIslands(mapTiles, zones, shapePresets, options = {}
 
 // 🎲 Выбор шаблона шейпа
 function rollShape(shapes, rng) {
+  if (!Array.isArray(shapes) || shapes.length === 0) return null;
+
   const totalWeight = shapes.reduce((sum, s) => sum + (s.chance || 1), 0);
   const roll = rng() * totalWeight;
   let acc = 0;
   for (const shape of shapes) {
     acc += shape.chance || 1;
     if (roll <= acc) {
-      console.log(`🎲 Rolled shape: ${shape.name}`);
       console.log(`🎲 Rolled shape: ${shape.name} (chance=${shape.chance})`);
       return shape;
     }
@@ -86,31 +98,41 @@ function rollShape(shapes, rng) {
   return shapes[0];
 }
 
-// 📐 Зоны по координатам
-function filterZone(mapTiles, zoneName) {
-  const qMin = Math.min(...mapTiles.map(t => t.q));
-  const qMax = Math.max(...mapTiles.map(t => t.q));
-  const rMin = Math.min(...mapTiles.map(t => t.r));
-  const rMax = Math.max(...mapTiles.map(t => t.r));
-  const midQ = (qMin + qMax) / 2;
-  const midR = (rMin + rMax) / 2;
+// Определение зон по углам карты (кубическая система координат)
+function filterZone(mapTiles, zoneName, mapSize) {
+  const half = Math.floor(mapSize / 3); // центр остаётся "чистым"
 
-  return mapTiles.filter(t => {
-    const { q, r } = t;
-    if (zoneName === 'topLeft') return q < midQ && r < midR;
-    if (zoneName === 'topRight') return q > midQ && r < midR;
-    if (zoneName === 'bottomLeft') return q < midQ && r > midR;
-    if (zoneName === 'bottomRight') return q > midQ && r > midR;
-    if (zoneName === 'left') return q <= qMin + 2;
-    if (zoneName === 'right') return q >= qMax - 2;
-    if (zoneName === 'centerLeft') return q < midQ && Math.abs(r - midR) < 3;
-    if (zoneName === 'centerRight') return q > midQ && Math.abs(r - midR) < 3;
-    if (zoneName === 'topEdge') return r <= rMin + 2;
-    if (zoneName === 'bottomEdge') return r >= rMax - 2;
-    if (zoneName === 'center') return Math.abs(q - midQ) < 3 && Math.abs(r - midR) < 3;
-    return false;
-  });
+  const corners = {
+    topLeft:     { q: 0, r: -mapSize, s: mapSize },
+    topRight:    { q: mapSize, r: -mapSize, s: 0 },
+    right:       { q: mapSize, r: 0, s: -mapSize },
+    bottomRight: { q: 0, r: mapSize, s: -mapSize },
+    bottomLeft:  { q: -mapSize, r: mapSize, s: 0 },
+    left:        { q: -mapSize, r: 0, s: mapSize }
+  };
+
+  function hexDistance(a, b) {
+    return Math.max(
+      Math.abs(a.q - b.q),
+      Math.abs(a.r - b.r),
+      Math.abs(a.s - b.s)
+    );
+  }
+
+  if (zoneName === 'center') {
+    const cornerTiles = Object.values(corners).flatMap(corner =>
+      mapTiles.filter(t => hexDistance(t, corner) <= half)
+    );
+    const cornerKeys = new Set(cornerTiles.map(t => `${t.q},${t.r},${t.s}`));
+    return mapTiles.filter(t => !cornerKeys.has(`${t.q},${t.r},${t.s}`));
+  }
+
+  const corner = corners[zoneName];
+  if (!corner) return [];
+
+  return mapTiles.filter(t => hexDistance(t, corner) <= half);
 }
+
 
 // 🎲 Рандом с сидом
 export function createSeededRNG(seed) {
