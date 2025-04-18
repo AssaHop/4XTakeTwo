@@ -4,7 +4,7 @@ export const CombatModules = {
   Seize: {
     name: 'Seize',
     tags: ['combat'],
-    description: 'Поглощает врага в ресурс города атакующего.',
+    description: 'Позволяет юниту превращать вражеского юнита в союзного при attack.',
     effect: (unit) => {
       unit.specialAttack = 'seize';
     }

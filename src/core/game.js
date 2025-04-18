@@ -8,6 +8,7 @@ import { state } from './state.js';
 import { loadGameState, saveGameState } from './savegame.js';
 import { transitionTo, GameState } from './gameStateMachine.js';
 import { initProgressionSystem } from '../mechanics/progressionSystem.js';
+import { initMapIndex } from '../utils/initMapIndex.js';
 
 let scale = 1;
 let isDragging = false;
@@ -42,9 +43,11 @@ function startGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapTyp
 function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapType = 'default') {
   updateMapOffset();
 
-  // ✅ передаём profile = mapType
   const map = generateScenario(scenarioName, { size, profile: mapType });
   state.map = map;
+
+  // ✅ Добавляем индекс для AI, pathfinding, LoS
+  state.mapIndex = initMapIndex(map);
 
   if (!map || map.length === 0) {
     console.error('❌ Map generation failed');

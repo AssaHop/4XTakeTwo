@@ -1,4 +1,5 @@
 // 📋 src/world/map.js
+import { state } from '../core/state.js'; // ⬅️ нужно для доступа к state.mapIndex
 
 const HEX_RADIUS = 40;
 
@@ -84,8 +85,14 @@ function generateHexMap(size, offsetX = 0, offsetY = 0) {
   return map;
 }
 
+// 🔁 Старый способ: через линейный поиск
 function getTile(q, r, s) {
   return mapTiles.find(t => t.q === q && t.r === r && t.s === s);
+}
+
+// ⚡ Новый быстрый доступ — если mapIndex уже есть
+function getTileFast(q, r, s) {
+  return state.mapIndex?.[`${q},${r},${s}`];
 }
 
 function getHexCount(size) {
@@ -102,6 +109,7 @@ function getHexCount(size) {
 export {
   generateHexMap,
   getTile,
+  getTileFast,        // ✅ экспортируем быстрый метод отдельно
   cubeToPixel,
   pixelToCube,
   cubeRound,

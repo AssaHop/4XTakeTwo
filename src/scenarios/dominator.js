@@ -5,7 +5,7 @@ export const dominator = {
   id: 'dominator',
   name: 'Dominator',
 
-  generateMap: ({ size = 15, profile = 'defaultIsland', seed = Date.now() }) => {
+  generateMap: ({ size = 10, profile = 'defaultIsland', seed = Date.now() }) => {
     // 🗺 Генерация карты по профилю
     return generateMapByProfile(profile, size, seed);
   },

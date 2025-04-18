@@ -45,6 +45,11 @@ class Unit {
     applyModules(this);
     this.recalculateMobility();
     setupActionFlags(this);
+
+    // 🧠 AI профиль
+    this.aiRole = options.aiProfile?.role || 'neutral';
+    this.aiOverrides = options.aiProfile?.overrides || {};
+    this.aiRisk = options.aiProfile?.risk ?? 0.3;
   }
 
   hasModule(modName) {
@@ -143,48 +148,44 @@ class Unit {
     return result;
   }
 
-static getAttackableHexes(unit) {
-  const targets = new Set();
-  const weaponTypes = Array.isArray(unit.weType) ? unit.weType : [unit.weType];
+  static getAttackableHexes(unit) {
+    const targets = new Set();
+    const weaponTypes = Array.isArray(unit.weType) ? unit.weType : [unit.weType];
 
-  for (let weapType of weaponTypes) {
-    const config = WeaponTypes[weapType];
-    if (!config) continue;
+    for (let weapType of weaponTypes) {
+      const config = WeaponTypes[weapType];
+      if (!config) continue;
 
-    const range = config.range || unit.atRange;
+      const range = config.range || unit.atRange;
 
-    for (let dq = -range; dq <= range; dq++) {
-      for (
-        let dr = Math.max(-range, -dq - range);
-        dr <= Math.min(range, -dq + range);
-        dr++
-      ) {
-        const ds = -dq - dr;
-        const q = unit.q + dq;
-        const r = unit.r + dr;
-        const s = -q - r;
+      for (let dq = -range; dq <= range; dq++) {
+        for (
+          let dr = Math.max(-range, -dq - range);
+          dr <= Math.min(range, -dq + range);
+          dr++
+        ) {
+          const ds = -dq - dr;
+          const q = unit.q + dq;
+          const r = unit.r + dr;
+          const s = -q - r;
 
-        const target = state.units.find(
-          (u) => u.q === q && u.r === r && u.s === s && u.owner !== unit.owner
-        );
-        if (!target) continue;
+          const target = state.units.find(
+            (u) => u.q === q && u.r === r && u.s === s && u.owner !== unit.owner
+          );
+          if (!target) continue;
 
-        if (hasLineOfSight(unit, target, state.map, weapType)) {
-          targets.add(`${q},${r},${s}`);
+          if (hasLineOfSight(unit, target, state.map, weapType)) {
+            targets.add(`${q},${r},${s}`);
+          }
         }
       }
     }
+
+    return [...targets].map(str => {
+      const [q, r, s] = str.split(',').map(Number);
+      return { q, r, s, isAttack: true };
+    });
   }
-
-  // Конвертируем в массив объектов с координатами
-  return [...targets].map(str => {
-    const [q, r, s] = str.split(',').map(Number);
-    return { q, r, s, isAttack: true };
-  });
-}
-
-  
-  
 
   select() { this.selected = true; }
   deselect() { this.selected = false; }

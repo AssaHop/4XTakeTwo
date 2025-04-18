@@ -24,7 +24,8 @@ export function generateZonalIslands(mapTiles, zones, shapePresets, options = {}
     for (let i = 0; i < count; i++) {
       const origin = zoneTiles[Math.floor(rng() * zoneTiles.length)];
       const shape = rollShape(zone.shapes, rng);
-      if (!shape || !shape.name) {
+
+      if (!shape?.name) {
         console.warn(`❗ No shape rolled for zone "${zone.name}"`);
         continue;
       }
@@ -54,7 +55,6 @@ export function generateZonalIslands(mapTiles, zones, shapePresets, options = {}
           tile.terrainType = shape.type || 'land';
           usedTiles.add(key);
           seeds.push(tile);
-          console.log(`🌱 [${zone.name}] Seeded ${tile.terrainType} at (${q}, ${r}, ${s}) via shape: ${shape.name}`);
         }
       }
 
@@ -63,7 +63,10 @@ export function generateZonalIslands(mapTiles, zones, shapePresets, options = {}
         const newTiles = [];
 
         for (const tile of seeds) {
-          const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
+          const neighbors = tile.neighbors
+            .map(n => getTile(n.q, n.r, n.s))
+            .filter(Boolean);
+
           for (const neighbor of neighbors) {
             const key = `${neighbor.q},${neighbor.r},${neighbor.s}`;
             if (!usedTiles.has(key) && rng() < growChance) {
@@ -75,7 +78,6 @@ export function generateZonalIslands(mapTiles, zones, shapePresets, options = {}
         }
 
         seeds.push(...newTiles);
-        console.log(`🌿 [${zone.name}] Step ${step}: expanded ${newTiles.length} tiles`);
       }
     }
   }
@@ -88,19 +90,18 @@ function rollShape(shapes, rng) {
   const totalWeight = shapes.reduce((sum, s) => sum + (s.chance || 1), 0);
   const roll = rng() * totalWeight;
   let acc = 0;
+
   for (const shape of shapes) {
     acc += shape.chance || 1;
-    if (roll <= acc) {
-      console.log(`🎲 Rolled shape: ${shape.name} (chance=${shape.chance})`);
-      return shape;
-    }
+    if (roll <= acc) return shape;
   }
+
   return shapes[0];
 }
 
-// Определение зон по углам карты (кубическая система координат)
+// 🧭 Определение зон
 function filterZone(mapTiles, zoneName, mapSize) {
-  const half = Math.floor(mapSize / 3); // центр остаётся "чистым"
+  const half = Math.floor(mapSize / 3);
 
   const corners = {
     topLeft:     { q: 0, r: -mapSize, s: mapSize },
@@ -133,7 +134,6 @@ function filterZone(mapTiles, zoneName, mapSize) {
   return mapTiles.filter(t => hexDistance(t, corner) <= half);
 }
 
-
 // 🎲 Рандом с сидом
 export function createSeededRNG(seed) {
   let x = Math.sin(seed) * 10000;
@@ -159,16 +159,18 @@ export function clusterizeTerrain(mapTiles, intensity = 0.6, rng = Math.random) 
 }
 
 // ⛰️ Вертикальный рост
-export function applyVerticalIslandGrowth(mapTiles, verticalGrowthRules = {}, iterations = 3) {
+export function applyVerticalIslandGrowth(mapTiles, rules = {}, iterations = 3) {
   for (let step = 0; step < iterations; step++) {
-    for (const baseType in verticalGrowthRules) {
-      const promotions = verticalGrowthRules[baseType];
+    for (const baseType in rules) {
+      const promotions = rules[baseType];
       const candidates = mapTiles.filter(t => t.terrainType === baseType);
+
       for (const tile of candidates) {
         const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
         for (const promoteTo in promotions) {
           const rule = promotions[promoteTo];
           const countSame = neighbors.filter(n => n.terrainType === baseType).length;
+
           if (countSame >= rule.threshold && Math.random() < rule.chance) {
             tile.terrainType = promoteTo;
             break;
@@ -179,36 +181,39 @@ export function applyVerticalIslandGrowth(mapTiles, verticalGrowthRules = {}, it
   }
 }
 
-// ⛰️ Преобразование окружённой земли в холмы
+// 🪨 Преобразование окружённой земли в холмы
 export function applyLandToHillFilter(mapTiles, chance = 1) {
   for (const tile of mapTiles) {
     if (tile.terrainType !== 'land') continue;
     const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
     const hillCount = neighbors.filter(n => n.terrainType === 'hill').length;
+
     if (hillCount === 6 && Math.random() < chance) {
       tile.terrainType = 'hill';
     }
   }
 }
 
-// 🌊 Deep зоны в центре океанов
+// 🌊 Глубокие зоны в океане
 export function applyWaterToDeepFilter(mapTiles, chance = 0.5) {
   for (const tile of mapTiles) {
     if (tile.terrainType !== 'water') continue;
+
     const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
-    const allWaterOrDeep = neighbors.every(n => ['water', 'deep'].includes(n.terrainType));
+    const allWater = neighbors.every(n => ['water', 'deep'].includes(n.terrainType));
     const noLandTouch = neighbors.every(n => !['land', 'hill', 'mount', 'peak', 'surf'].includes(n.terrainType));
     const ringWater = neighbors.filter(n => ['water', 'deep'].includes(n.terrainType)).length >= 5;
 
-    if (allWaterOrDeep && noLandTouch && ringWater && Math.random() < chance) {
+    if (allWater && noLandTouch && ringWater && Math.random() < chance) {
       tile.terrainType = 'deep';
     }
   }
 }
 
-// 🌊 Обводка суши surf
+// 🌊 Обводка суши — surf
 export function applySurfRim(mapTiles, chance = 0.3) {
   const pendingSurf = new Set();
+
   for (const tile of mapTiles) {
     if (tile.terrainType !== 'water') continue;
 
@@ -226,7 +231,7 @@ export function applySurfRim(mapTiles, chance = 0.3) {
     }
   }
 
-  pendingSurf.forEach(t => t.terrainType = 'surf');
+  pendingSurf.forEach(tile => tile.terrainType = 'surf');
 }
 
 // 👯 Алиас

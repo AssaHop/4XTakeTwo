@@ -6,7 +6,7 @@ import { setupEndTurnButton, updateEndTurnButton } from './uiControls.js';
 import { renderUnits } from './render.js';
 import { highlightUnitContext } from './highlightManager.js';
 import { performAttack } from '../core/combatLogic.js';
-import { runAIForAllUnits } from '../ai/ai.js'; // ✅ AI подключен
+import { runAIForAllUnits } from '../ai/aiEngine.js';
 
 const squashFactor = 0.7;
 
@@ -87,14 +87,18 @@ function handleEndTurn() {
   state.hasActedThisTurn = false;
   updateEndTurnButton();
 
-  // Переход во вражеский ход
+  // 🎯 Переход на фазу AI
   transitionTo(GameState.ENEMY_TURN);
 
-  // ✅ AI активен после паузы
+  // 🔁 Подготовка AI-очереди
+  state.enemyQueue = state.units.filter(u => u.owner?.startsWith('enemy'));
+  state.enemyQueueIndex = 0;
+
+  // ⏱️ Запуск AI
   setTimeout(() => {
     runAIForAllUnits();
-    updateEndTurnButton(); // обновить статус кнопки
-    transitionTo(GameState.IDLE); // вернуться к игроку
+    updateEndTurnButton();
+    transitionTo(GameState.IDLE);
   }, 300);
 }
 
