@@ -232,7 +232,7 @@ function selectUnit(unit) {
 
   const hasMoves = unit.getAvailableHexes().length > 0;
   const hasAttacks = Unit.getAttackableHexes(unit).length > 0;
-  const isPercyReady = unit.canRepeatAttackOnKill && unit.lastAttackWasKill && hasAttacks;
+    
 
   const isInactive = (!unit.canAct && !unit.canMove && !isPercyReady) || (!hasMoves && !hasAttacks);
 

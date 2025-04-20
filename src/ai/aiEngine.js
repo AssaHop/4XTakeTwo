@@ -13,7 +13,9 @@ function runAiTurn() {
   const unit = state.enemyQueue[state.enemyQueueIndex];
   console.log(`\n🤖 [AI Step] ${state.enemyQueueIndex + 1}/${state.enemyQueue.length}`);
   console.log(`🔍 [Unit] ${unit.type} @ (${unit.q},${unit.r},${unit.s})`);
+  console.log('📦 Full unit:', unit);
   console.log(`⚙️ Flags → canMove: ${unit.canMove}, canAct: ${unit.canAct}`);
+  console.log(`🌊 Terrain:`, unit.moveTerrain);
 
   // 1. ATTACK if possible
   const targets = state.units.filter(u => u.owner !== unit.owner && canAttack(unit, u));
@@ -38,20 +40,28 @@ function runAiTurn() {
 
   try {
     const path = findPath(unit, target, state.mapIndex, unit);
+    console.log(`🧭 Path to ${target.type} @ (${target.q},${target.r},${target.s}):`, path);
+
     if (Array.isArray(path) && path.length > 1) {
-      const reachable = unit.getAvailableHexes();
+      const reachable = unit.getAvailableHexes?.() || [];
+
+      console.log(`🟢 Reachable hexes (${reachable.length}):`, reachable.map(h => `(${h.q},${h.r},${h.s})`));
+      console.log(`[AI DEBUG] Path to target (${path.length} steps):`, path.map(p => `(${p.q},${p.r},${p.s})`));
 
       const nextStep = path.find(p =>
         reachable.some(h => h.q === p.q && h.r === p.r && h.s === p.s)
       );
 
       if (nextStep) {
+        console.log(`[AI DEBUG] Next step in path is reachable: (${nextStep.q},${nextStep.r},${nextStep.s})`);
         const moved = unit.moveTo(nextStep.q, nextStep.r, nextStep.s);
         if (moved) {
           console.log(`🏃 [AI] ${unit.type} moves to (${nextStep.q},${nextStep.r},${nextStep.s})`);
           state.enemyQueueIndex++;
           setTimeout(runAiTurn, 200);
           return;
+        } else {
+          console.warn(`[AI] Move failed despite valid nextStep`);
         }
       } else {
         console.warn(`[AI] No reachable step found in path`);
@@ -70,6 +80,11 @@ function runAiTurn() {
 }
 
 function validateMapIntegrity() {
+  if (!state.map || !Array.isArray(state.map)) {
+    console.error('❌ [MAP] state.map is missing or not an array!');
+    return false;
+  }
+
   if (!state.mapIndex || Object.keys(state.mapIndex).length === 0) {
     console.error('❌ [MAP] mapIndex is missing or empty!');
     return false;

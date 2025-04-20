@@ -29,7 +29,7 @@ export const dominator = {
           q: hex.q,
           r: hex.r,
           s: hex.s,
-          type: i % 2 === 0 ? 'WBB' : 'WCC',
+          type: i % 2 === 0 ? 'WBB' : 'WBB',
           owner: `enemy${i}`
         });
       }

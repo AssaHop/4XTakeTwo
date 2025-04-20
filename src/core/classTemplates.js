@@ -38,7 +38,7 @@ const ClassTemplates = {
     viRange: 6,
     weType: ['Main'],
     spawnTerrain: ['surf', 'water', 'deep'],
-    modules: ['Navy'],
+    modules: ['Sail', 'Navy'],
     aiProfile: {
       role: 'neutral',
       risk: 0.4

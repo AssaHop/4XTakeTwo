@@ -3,7 +3,7 @@ export const defaultIsland = {
   name: 'Debug Island',
 
   growIterations: 1,
-  growChance: 0.63,
+  growChance: 0.3,
   clusterIntensity: 0.5,
 
   zonalIslands: [
