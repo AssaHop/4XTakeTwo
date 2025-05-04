@@ -8,10 +8,12 @@ import { setupActionFlags } from '../core/unitFlags.js';
 import { techTree } from '../core/techTree.js';
 import { ModuleDefinitions } from '../core/modules/allModulesRegistry.js';
 import { WeaponTypes } from '../core/modules/weaponTypes.js';
-import { highlightUnitContext } from '../ui/highlightManager.js';
-import { evaluatePostAction } from '../core/gameStateMachine.js';
 import { canUnitSpawnOnHex } from '../utils/spawnUtils.js';
+import { evaluatePostAction } from '../core/gameStateMachine.js';
 
+import { createPlayerTree } from '../ai/behavior/trees/playerTree.js';
+
+// 🧠 Unit class
 class Unit {
   constructor(q, r, s, type, owner, options = {}) {
     this.q = q;
@@ -46,7 +48,6 @@ class Unit {
     this.recalculateMobility();
     setupActionFlags(this);
 
-    // 🧠 AI профиль
     this.aiRole = options.aiProfile?.role || 'neutral';
     this.aiOverrides = options.aiProfile?.overrides || {};
     this.aiRisk = options.aiProfile?.risk ?? 0.3;
@@ -94,6 +95,12 @@ class Unit {
       return false;
     }
 
+    const occupied = state.units.find(u => u.q === q && u.r === r && u.s === s);
+    if (occupied) {
+      console.warn(`🚫 [MOVE FAIL] ${this.type} попытался переместиться на занятую клетку (${q},${r},${s})`);
+      return false;
+    }
+
     const allowed = this.getAvailableHexes();
     const allowedTarget = allowed.find(h => h.q === q && h.r === r && h.s === s);
     if (!allowedTarget) {
@@ -111,6 +118,42 @@ class Unit {
     renderMap(state.scale, state.offset);
     evaluatePostAction(this, { type: 'move' });
     return true;
+  }
+
+  moveToward(target) {
+    if (!this.canMove) return false;
+
+    const hexes = this.getAvailableHexes();
+    const sorted = hexes
+      .filter(hex => !state.units.find(u => u.q === hex.q && u.r === hex.r && u.s === hex.s))
+      .sort((a, b) => {
+        const dA = Math.abs(a.q - target.q) + Math.abs(a.r - target.r) + Math.abs(a.s - target.s);
+        const dB = Math.abs(b.q - target.q) + Math.abs(b.r - target.r) + Math.abs(b.s - target.s);
+        return dA - dB;
+      });
+
+    if (sorted.length === 0) {
+      console.warn(`🚫 [MOVE BLOCKED] ${this.type} не нашёл путь к цели (${target.q},${target.r},${target.s})`);
+      return false;
+    }
+
+    const next = sorted[0];
+    return this.moveTo(next.q, next.r, next.s);
+  }
+
+  canAttack(target) {
+    if (!this.canAct || this.owner === target.owner) {
+      if (target.owner === this.owner) {
+        console.warn(`⚠️ AI пытается атаковать союзника: ${this.type} -> ${target.type}`);
+      }
+      return false;
+    }
+
+    const dx = Math.abs(this.q - target.q);
+    const dy = Math.abs(this.r - target.r);
+    const dz = Math.abs(this.s - target.s);
+
+    return dx <= this.atRange && dy <= this.atRange && dz <= this.atRange;
   }
 
   getAvailableHexes() {
@@ -148,6 +191,27 @@ class Unit {
     return result;
   }
 
+  getVisibleEnemies() {
+    return state.units.filter(u =>
+      u.owner !== this.owner &&
+      this.distanceTo(u) <= this.viRange
+    );
+  }
+
+  hasEnemyInRange() {
+    return state.units.some(u => this.canAttack(u));
+  }
+
+  canReach(target) {
+    return this.getAvailableHexes().some(
+      h => h.q === target.q && h.r === target.r && h.s === target.s
+    );
+  }
+
+  isAlive() {
+    return this.hp > 0;
+  }
+
   static getAttackableHexes(unit) {
     const targets = new Set();
     const weaponTypes = Array.isArray(unit.weType) ? unit.weType : [unit.weType];
@@ -159,19 +223,13 @@ class Unit {
       const range = config.range || unit.atRange;
 
       for (let dq = -range; dq <= range; dq++) {
-        for (
-          let dr = Math.max(-range, -dq - range);
-          dr <= Math.min(range, -dq + range);
-          dr++
-        ) {
+        for (let dr = Math.max(-range, -dq - range); dr <= Math.min(range, -dq + range); dr++) {
           const ds = -dq - dr;
           const q = unit.q + dq;
           const r = unit.r + dr;
           const s = -q - r;
 
-          const target = state.units.find(
-            (u) => u.q === q && u.r === r && u.s === s && u.owner !== unit.owner
-          );
+          const target = state.units.find(u => u.q === q && u.r === r && u.s === s && u.owner !== unit.owner);
           if (!target) continue;
 
           if (hasLineOfSight(unit, target, state.map, weapType)) {
@@ -195,6 +253,14 @@ class Unit {
     this.canAct = true;
     this.moveBonusUsed = false;
     this.actBonusUsed = false;
+  }
+
+  distanceTo(target) {
+    return Math.max(
+      Math.abs(this.q - target.q),
+      Math.abs(this.r - target.r),
+      Math.abs(this.s - target.s)
+    );
   }
 }
 
@@ -224,16 +290,15 @@ function generateUnits(unitsList) {
     addUnit(unit.q, unit.r, unit.s, unit.type, unit.owner);
   }
   console.log('[DEBUG] All units on map after spawn:');
-  state.units.forEach(u => console.log(`${u.type} actions=?`));
+  state.units.forEach(u => console.log(`${u.type}`));
 }
 
 function selectUnit(unit) {
   if (!unit) return;
 
+  const isPercyReady = unit.hasModule?.('Percy') && unit.lastAttackWasKill;
   const hasMoves = unit.getAvailableHexes().length > 0;
   const hasAttacks = Unit.getAttackableHexes(unit).length > 0;
-    
-
   const isInactive = (!unit.canAct && !unit.canMove && !isPercyReady) || (!hasMoves && !hasAttacks);
 
   if (isInactive) {
@@ -244,8 +309,10 @@ function selectUnit(unit) {
   state.units.forEach(u => u.deselect());
   unit.select();
   state.selectedUnit = unit;
-  highlightUnitContext(unit);
-  console.log(`[SELECT] Unit ${unit.type} selected → move=${unit.canMove}, act=${unit.canAct}, moRange=${unit.moRange}, atRange=${unit.atRange}`);
+
+  const tree = createPlayerTree(unit, state);
+  tree.run();
+
   renderUnits();
 }
 

@@ -6,7 +6,7 @@ import { setupEndTurnButton, updateEndTurnButton } from './uiControls.js';
 import { renderUnits } from './render.js';
 import { highlightUnitContext } from './highlightManager.js';
 import { performAttack } from '../core/combatLogic.js';
-import { runAIForAllUnits } from '../ai/aiEngine.js';
+import { runAIForTurn } from '../ai/aiManager.js'; // 🔄 Новый AI вход
 
 const squashFactor = 0.7;
 
@@ -42,7 +42,7 @@ function handleCanvasClick(event) {
         const attackTargets = Unit.getAttackableHexes(selected);
         const validTarget = attackTargets.find(t => t.q === q && t.r === r && t.s === s);
         if (validTarget) {
-          performAttack(selected, clickedUnit); // FSM triggered inside
+          performAttack(selected, clickedUnit); // FSM обработает post-action
           return;
         }
       }
@@ -70,7 +70,7 @@ function handleCanvasClick(event) {
       if (moved) {
         console.log(`🚶 Unit moved to: (${q}, ${r}, ${s})`);
         renderUnits();
-        evaluatePostAction(selected, { type: 'move' }); // FSM takes over
+        evaluatePostAction(selected, { type: 'move' }); // FSM возьмет управление
         return;
       }
     }
@@ -82,24 +82,22 @@ function handleCanvasClick(event) {
 function handleEndTurn() {
   console.log('🔚 End turn clicked');
 
-  // Сбросить действия игроков
-  state.units.forEach(unit => unit.resetActions());
+  // Сбросить действия всех юнитов
+  state.units.forEach(unit => unit.resetActions?.());
   state.hasActedThisTurn = false;
   updateEndTurnButton();
 
-  // 🎯 Переход на фазу AI
+  // 🎯 Переход в фазу AI
   transitionTo(GameState.ENEMY_TURN);
 
-  // 🔁 Подготовка AI-очереди
-  state.enemyQueue = state.units.filter(u => u.owner?.startsWith('enemy'));
-  state.enemyQueueIndex = 0;
-
-  // ⏱️ Запуск AI
+  // 🧠 Запуск FSM + Behavior Tree AI
   setTimeout(() => {
-    runAIForAllUnits();
-    updateEndTurnButton();
-    transitionTo(GameState.IDLE);
+    runAIForTurn(state);      // ✅ ЗАПУСК AI
+    renderUnits();            // 🔁 Обновить отрисовку
+    updateEndTurnButton(true);
+    transitionTo(GameState.IDLE); // ⬅️ Вернуться в IDLE
   }, 300);
 }
+
 
 export { setupEventListeners };
