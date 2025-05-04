@@ -34,8 +34,8 @@ const ClassTemplates = {
   },
   WBB: {
     hp: 6,
-    moRange: 6,
-    viRange: 6,
+    moRange: 3,
+    viRange: 100,
     weType: ['Main'],
     spawnTerrain: ['surf', 'water', 'deep'],
     modules: ['Sail', 'Navy'],

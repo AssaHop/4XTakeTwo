@@ -1,7 +1,8 @@
+// ✅ src/core/state.js
 const state = {
   map: [],
   units: [],
-  cities: [], // ✅ Добавлено: список всех городов на карте
+  cities: [], // ✅ список всех городов на карте
   selectedUnit: null,
   highlightedHexes: [],
   attackHexes: [],
@@ -22,6 +23,10 @@ const state = {
 
   getEnemyCities(unit = null) {
     return this.cities?.filter(c => c.owner && c.owner !== 'player1') || [];
+  },
+
+  resetAIUnits() {
+    this.getAIUnits().forEach(u => u.resetActions());
   }
 };
 
