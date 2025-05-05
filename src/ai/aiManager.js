@@ -1,30 +1,40 @@
 // 📁 src/ai/aiManager.js
 
-import { getBehaviorTreeForUnit } from './behavior/behaviorFactory.js';
-import { getCurrentFSMState } from './fsm/strategyManager.js';
+import { createAttackWbbTree } from './behavior/trees/attack/attackWbb.js';
 
-export function runAIForTurn(gameState) {
-  const aiUnits = gameState.getAIUnits?.() || [];
-
-  // 1. Получить стратегическое состояние
-  const fsmState = getCurrentFSMState(gameState); // например: ATTACK, DEFEND и т.д.
-  console.log(`🧠 FSM Strategy: ${fsmState}`);
-
-  // 2. Для каждого юнита — исполнить соответствующее дерево поведения
-  aiUnits.forEach(unit => {
-    if (!unit || unit.hp <= 0 || (!unit.canAct && !unit.canMove)) {
-      console.log(`⏩ Skipping unit ${unit?.type} (exhausted/dead)`);
-      return;
-    }
-
-    const tree = getBehaviorTreeForUnit(unit, gameState, fsmState);
-
-    if (tree && tree.run) {
-      console.log(`🌳 Executing tree for ${unit.type} at (${unit.q},${unit.r},${unit.s})`);
-      console.log(`🧠 AI Decision tree for ${unit.type}:`, tree);
-      tree.run();
-    } else {
-      console.warn(`❌ No tree found for unit ${unit.type}`);
-    }
-  });
+// 🔍 Фильтрация AI-юнитов
+function getAIUnits(units) {
+  return units.filter(u => u.owner?.startsWith('enemy'));
 }
+
+/**
+ * 📦 Основной обработчик хода AI
+ */
+export async function runAIForTurn(gameState) {
+  const aiUnits = getAIUnits(gameState.units);
+  console.log('🧳 AI Units found:', aiUnits.length);
+
+  for (const unit of aiUnits) {
+    console.log(`🔍 ${unit.type} at (${unit.q},${unit.r},${unit.s}) | owner=${unit.owner} | HP=${unit.hp}/${unit.maxHp} | act=${unit.canAct}, move=${unit.canMove}`);
+
+    const fsm = unit.fsm || 'ATTACK';
+    console.log('🧠 FSM Strategy:', fsm);
+
+    let tree = null;
+    switch (fsm) {
+      case 'ATTACK':
+      default:
+        tree = createAttackWbbTree(unit, gameState);
+        break;
+    }
+
+    if (tree) {
+      console.log(`🌳 Executing tree for ${unit.type} at (${unit.q},${unit.r},${unit.s}) [FSM: ${fsm}]`);
+      console.log('📦 Tree type:', tree.constructor.name);
+      console.log('📍 [AI] Tree instance:', tree);
+      console.log('🧠 [AI] WBB HP:', unit.hp + '/' + unit.maxHp);
+
+      await tree.run();
+    }
+  }
+} 

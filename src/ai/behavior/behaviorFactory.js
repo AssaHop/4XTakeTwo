@@ -1,21 +1,40 @@
-  import { createAttackTree } from './trees/attackTree.js';
-  //import { createDefenseTree } from './trees/defenseTree.js';
-  //import { createExpandTree } from './trees/expandTree.js';
-  //import { createEconomyTree } from './trees/economyTree.js';
+import { FSMStates } from '../fsm/strategyManager.js';
 
-  import { FSMStates } from '../fsm/strategyManager.js';
+// ATTACK
+import { createAttackTree } from './trees/attack/attackTree.js';
+import { createAttackWbbTree } from './trees/attack/attackWbb.js';
 
-  export function getBehaviorTreeForUnit(unit, gameState, fsmState) {
-    switch (fsmState) {
-      case FSMStates.ATTACK:
-        return createAttackTree(unit, gameState);
-      //case FSMStates.DEFEND:
-        //return createDefenseTree(unit, gameState);
-      //case FSMStates.EXPAND:
-        //return createExpandTree(unit, gameState);
-      //case FSMStates.ECONOMY:
-        //return createEconomyTree(unit, gameState);
-      default:
-        return createAttackTree(unit, gameState); // fallback
-    }
+// DEFEND
+import { createDefendTree } from './trees/defend/defendTree.js';
+import { createDefendWbbTree } from './trees/defend/defendWbb.js';
+
+/**
+ * Возвращает поведенческое дерево на основе FSM-состояния и типа юнита.
+ */
+export function getBehaviorTreeForUnit(unit, gameState, fsmState) {
+  switch (fsmState) {
+    case FSMStates.ATTACK:
+      switch (unit.type) {
+        case 'WBB':
+          console.log(`🎯 [BT] WBB uses ATTACK → attackWbb.js`);
+          return createAttackWbbTree(unit, gameState);
+        default:
+          console.log(`🔁 [BT] ${unit.type} uses shared ATTACK → attackTree.js`);
+          return createAttackTree(unit, gameState);
+      }
+
+    case FSMStates.DEFEND:
+      switch (unit.type) {
+        case 'WBB':
+          console.log(`🎯 [BT] WBB uses DEFEND → defendWbb.js`);
+          return createDefendWbbTree(unit, gameState);
+        default:
+          console.log(`🔁 [BT] ${unit.type} uses shared DEFEND → defendTree.js`);
+          return createDefendTree(unit, gameState);
+      }
+
+    default:
+      console.warn(`⚠️ [BT] Unknown FSM state (${fsmState}), fallback to shared ATTACK`);
+      return createAttackTree(unit, gameState);
   }
+}

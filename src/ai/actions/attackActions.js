@@ -1,5 +1,6 @@
-// 📁 src/ai/actions/attackActions.js
-
+/**
+ * Функция атаки ближайшего врага в радиусе.
+ */
 export function attackEnemyInRange(unit, gameState) {
   const enemies = gameState.getVisibleEnemies(unit);
   const target = enemies
@@ -23,4 +24,14 @@ export function attackEnemyInRange(unit, gameState) {
   }
 
   return true;
+}
+
+/**
+ * Возвращает ближайшего врага, которого можно атаковать.
+ */
+export function getClosestAttackableEnemy(unit, gameState) {
+  const enemies = unit.getVisibleEnemies();
+  return enemies
+    .filter(enemy => unit.canAttack(enemy))
+    .sort((a, b) => unit.distanceTo(a) - unit.distanceTo(b))[0];
 }
