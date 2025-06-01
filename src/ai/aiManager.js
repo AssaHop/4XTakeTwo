@@ -1,40 +1,68 @@
 // 📁 src/ai/aiManager.js
-
-import { createAttackWbbTree } from './behavior/trees/attack/attackWbb.js';
+import { AttackActions } from './actions/attackActions.js';
+import { MoveActions } from './actions/moveActions.js';
+import { EconomicActions } from './actions/economicActions.js';
 
 // 🔍 Фильтрация AI-юнитов
 function getAIUnits(units) {
-  return units.filter(u => u.owner?.startsWith('enemy'));
+    return units.filter(u => u.owner?.startsWith('enemy'));
 }
 
 /**
  * 📦 Основной обработчик хода AI
+ * Использует стратегический FSM и эвристические оценки
  */
 export async function runAIForTurn(gameState) {
-  const aiUnits = getAIUnits(gameState.units);
-  console.log('🧳 AI Units found:', aiUnits.length);
+    const aiUnits = getAIUnits(gameState.units);
+    console.log('🧳 AI Units found:', aiUnits.length);
 
-  for (const unit of aiUnits) {
-    console.log(`🔍 ${unit.type} at (${unit.q},${unit.r},${unit.s}) | owner=${unit.owner} | HP=${unit.hp}/${unit.maxHp} | act=${unit.canAct}, move=${unit.canMove}`);
+    // Инициализация менеджеров действий
+    const attackManager = new AttackActions(gameState);
+    const moveManager = new MoveActions(gameState);
+    const economyManager = new EconomicActions(gameState);
 
-    const fsm = unit.fsm || 'ATTACK';
-    console.log('🧠 FSM Strategy:', fsm);
+    for (const unit of aiUnits) {
+        console.log(`🔍 ${unit.type} at (${unit.q},${unit.r},${unit.s}) | owner=${unit.owner} | HP=${unit.hp}/${unit.maxHp} | act=${unit.canAct}, move=${unit.canMove}`);
 
-    let tree = null;
-    switch (fsm) {
-      case 'ATTACK':
-      default:
-        tree = createAttackWbbTree(unit, gameState);
-        break;
+        // Выбор стратегии на основе FSM состояния
+        const fsm = unit.fsm || 'ATTACK';
+        console.log('🧠 FSM Strategy:', fsm);
+
+        try {
+            switch (fsm) {
+                case 'ATTACK':
+                    await attackManager.executeAttackStrategy(unit);
+                    break;
+                case 'MOVE':
+                    await moveManager.executeMoveStrategy(unit);
+                    break;
+                case 'ECONOMY':
+                    await economyManager.executeEconomicStrategy(unit);
+                    break;
+                default:
+                    console.warn(`🚨 Неизвестная стратегия FSM: ${fsm}`);
+            }
+        } catch (error) {
+            console.error(`🔥 Ошибка выполнения стратегии для ${unit.type}:`, error);
+        }
     }
 
-    if (tree) {
-      console.log(`🌳 Executing tree for ${unit.type} at (${unit.q},${unit.r},${unit.s}) [FSM: ${fsm}]`);
-      console.log('📦 Tree type:', tree.constructor.name);
-      console.log('📍 [AI] Tree instance:', tree);
-      console.log('🧠 [AI] WBB HP:', unit.hp + '/' + unit.maxHp);
+    // Глобальная оценка состояния и адаптация стратегии
+    this.evaluateAndAdaptGlobalStrategy(gameState);
+}
 
-      await tree.run();
-    }
-  }
-} 
+/**
+ * Глобальная оценка и адаптация стратегии AI
+ */
+function evaluateAndAdaptGlobalStrategy(gameState) {
+    // TODO: Реализовать глобальную стратегическую оценку
+    // - Анализ ресурсов
+    // - Оценка угроз
+    // - Корректировка глобальной стратегии
+    console.log('🌐 Глобальная стратегическая оценка');
+}
+
+export default {
+    runAIForTurn,
+    evaluateAndAdaptGlobalStrategy
+};

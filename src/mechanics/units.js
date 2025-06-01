@@ -11,8 +11,6 @@ import { WeaponTypes } from '../core/modules/weaponTypes.js';
 import { canUnitSpawnOnHex } from '../utils/spawnUtils.js';
 import { evaluatePostAction } from '../core/gameStateMachine.js';
 
-import { createPlayerTree } from '../ai/behavior/trees/playerTree.js';
-
 // 🧠 Unit class
 class Unit {
   constructor(q, r, s, type, owner, options = {}) {
@@ -310,8 +308,10 @@ function selectUnit(unit) {
   unit.select();
   state.selectedUnit = unit;
 
-  const tree = createPlayerTree(unit, state);
-  tree.run();
+  // 👉 Добавляем прямой вызов подсветки
+  import('../ui/highlightManager.js').then(module => {
+    module.highlightUnitContext(unit);
+  });
 
   renderUnits();
 }
