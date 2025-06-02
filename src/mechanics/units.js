@@ -279,7 +279,7 @@ function addUnit(q, r, s, type, owner) {
   unit.color = owner?.startsWith('enemy') ? '#755' : '#000';
   units.push(unit);
   renderUnits();
-  console.log(`✅ Unit ADDED: ${type} at (${q}, ${r}, ${s})`);
+  console.log(`✅ Unit ADDED: ${type} at (${q}, ${r}, ${s}) | owner: ${owner}`);
 }
 
 function generateUnits(unitsList) {
@@ -288,7 +288,7 @@ function generateUnits(unitsList) {
     addUnit(unit.q, unit.r, unit.s, unit.type, unit.owner);
   }
   console.log('[DEBUG] All units on map after spawn:');
-  state.units.forEach(u => console.log(`${u.type}`));
+  state.units.forEach(u => console.log(`${u.type} → ${u.owner}`));
 }
 
 function selectUnit(unit) {
@@ -308,7 +308,6 @@ function selectUnit(unit) {
   unit.select();
   state.selectedUnit = unit;
 
-  // 👉 Добавляем прямой вызов подсветки
   import('../ui/highlightManager.js').then(module => {
     module.highlightUnitContext(unit);
   });

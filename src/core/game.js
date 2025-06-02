@@ -9,6 +9,7 @@ import { loadGameState, saveGameState } from './savegame.js';
 import { transitionTo, GameState } from './gameStateMachine.js';
 import { initProgressionSystem } from '../mechanics/progressionSystem.js';
 import { initMapIndex } from '../utils/initMapIndex.js';
+import { runAIForTurn } from '../ai/aiManager.js';
 
 let scale = 1;
 let isDragging = false;

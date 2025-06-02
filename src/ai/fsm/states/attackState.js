@@ -1,100 +1,78 @@
+// src/ai/fsm/states/attackState.js
+import { UnitEvaluator } from '../../evaluators/unitEvaluator.js';
+import { ThreatEvaluator } from '../../evaluators/threatEvaluator.js';
+
 export class AttackState {
     constructor(gameState) {
         this.gameState = gameState;
-        this.attackPriorities = {
-            weakestEnemy: 'lowest_health',
-            nearestEnemy: 'closest_distance',
-            strategicTarget: 'most_valuable'
-        };
+        this.unitEvaluator = new UnitEvaluator();
+        this.threatEvaluator = new ThreatEvaluator();
     }
 
-    // Выполнение атакующих действий
     execute() {
-        // Фильтруем боевые юниты, способные атаковать
-        const attackUnits = this.gameState.units.filter(
-            unit => unit.owner === this.gameState.currentPlayer && unit.canAttack
+        const aiUnits = this.gameState.units.filter(
+            unit => unit.owner.startsWith('enemy')
         );
 
-        return attackUnits.map(unit => {
-            const target = this.findBestTarget(unit);
-            return {
-                type: 'attack',
-                unit: unit,
-                target: target,
-                strategy: this.determineAttackStrategy(unit, target)
-            };
-        });
+        const actions = [];
+
+        for (const unit of aiUnits) {
+            const threatLevel = this.threatEvaluator.evaluateThreatLevel(unit, this.gameState);
+
+            if (unit.hp < unit.maxHp * 0.3 || threatLevel > 2.5) {
+                actions.push({ type: 'idle', unit });
+                continue;
+            }
+
+            const enemyUnits = this.gameState.units.filter(
+                u => !u.owner.startsWith('enemy')
+            );
+
+            let bestTarget = null;
+            let bestScore = -Infinity;
+
+            for (const target of enemyUnits) {
+                const score = this.unitEvaluator.evaluateAttackAction(unit, target, this.gameState);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestTarget = target;
+                }
+            }
+
+            if (!bestTarget) {
+                actions.push({ type: 'idle', unit });
+                continue;
+            }
+
+            const distance = this.getDistance(unit, bestTarget);
+
+            if (distance <= unit.atRange) {
+                actions.push({ type: 'attack', unit, target: bestTarget });
+            } else if (distance <= unit.moRange + unit.atRange) {
+                const step = this.stepToward(unit, bestTarget);
+                actions.push({ type: 'move', unit, destination: step });
+            } else {
+                actions.push({ type: 'idle', unit });
+            }
+        }
+
+        return actions;
     }
 
-    // Поиск лучшей цели для атаки
-    findBestTarget(attackingUnit) {
-        const enemyUnits = this.gameState.units.filter(
-            u => u.owner !== this.gameState.currentPlayer
+    getDistance(a, b) {
+        return Math.max(
+            Math.abs(a.q - b.q),
+            Math.abs(a.r - b.r),
+            Math.abs(a.s - b.s)
         );
-
-        // Простейшая логика - атака ближайшего врага
-        return enemyUnits.reduce((closest, enemy) => {
-            const currentDistance = this.calculateDistance(attackingUnit, enemy);
-            const closestDistance = this.calculateDistance(attackingUnit, closest);
-            return currentDistance < closestDistance ? enemy : closest;
-        });
     }
 
-    // Определение стратегии атаки
-    determineAttackStrategy(attacker, target) {
-        const healthRatio = target.health / target.maxHealth;
-        
-        if (healthRatio < 0.3) return 'finish_off';
-        if (attacker.health > target.health * 1.5) return 'aggressive';
-        
-        return 'cautious';
+    stepToward(unit, target) {
+        // Простая реализация — один шаг по направлению
+        const dq = Math.sign(target.q - unit.q);
+        const dr = Math.sign(target.r - unit.r);
+        const ds = Math.sign(target.s - unit.s);
+
+        return { q: unit.q + dq, r: unit.r + dr, s: unit.s + ds };
     }
-
-    // Вспомогательный метод расчета дистанции
-    calculateDistance(unit1, unit2) {
-        return Math.sqrt(
-            Math.pow(unit1.q - unit2.q, 2) + 
-            Math.pow(unit1.r - unit2.r, 2) + 
-            Math.pow(unit1.s - unit2.s, 2)
-        );
-    }
-
-    // Проверка условий перехода из состояния атаки
-    shouldTransition() {
-        const enemyUnits = this.gameState.units.filter(
-            u => u.owner !== this.gameState.currentPlayer
-        );
-
-        return {
-            toDefend: enemyUnits.length > this.gameState.units.length * 1.5,
-            toExpand: enemyUnits.length === 0,
-            toEconomy: enemyUnits.length === 0
-        };
-    }
-
-    // Получение информации о состоянии
-    getStateInfo() {
-        const enemyUnits = this.gameState.units.filter(
-            u => u.owner !== this.gameState.currentPlayer
-        );
-
-        return {
-            name: 'ATTACK',
-            description: 'AI is in an aggressive state, targeting enemies',
-            enemyCount: enemyUnits.length,
-            attackPotential: this.calculateAttackPotential()
-        };
-    }
-
-    // Расчет потенциала атаки
-    calculateAttackPotential() {
-        const attackUnits = this.gameState.units.filter(
-            unit => unit.owner === this.gameState.currentPlayer && unit.canAttack
-        );
-
-        return {
-            totalAttackUnits: attackUnits.length,
-            averageUnitStrength: attackUnits.reduce((sum, unit) => sum + unit.strength, 0) / attackUnits.length
-        };
-    }
-}
+} 

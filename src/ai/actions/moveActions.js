@@ -114,13 +114,49 @@ export class MoveActions {
         return Math.min(baseConverage * patternMultiplier * waypoints.length, 1.0);
     }
 
-    // Выполнение перемещения с выбранной стратегией
+    // Выполнение перемещения с выбранной стратегией (старый вариант, для обратной совместимости)
     executeMove(strategy, destination, params = {}) {
         if (!this.movementStrategies[strategy]) {
             throw new Error(`Unknown movement strategy: ${strategy}`);
         }
 
         return this.movementStrategies[strategy].call(this, destination, params.speed);
+    }
+
+    // Унифицированный метод, аналогичный executeAttack для атакующего менеджера
+    executeAction(action) {
+        // Определяем стратегию движения, по умолчанию стандартная
+        const strategy = action.strategy || 'standard';
+
+        // Для патруля нужны waypoints
+        if (strategy === 'patrol') {
+            const waypoints = action.waypoints;
+            const patrolPattern = action.patrolPattern || 'circular';
+            return this.patrolMove(waypoints, patrolPattern);
+        }
+
+        // Для других стратегий ищем destination
+        const destination =
+            action.destination ||
+            action.position ||
+            action.target;
+
+        // Подбираем параметры для соответствующей стратегии
+        switch (strategy) {
+            case 'standard':
+                // Можно передать скорость через action.speed
+                return this.standardMove(destination, action.speed || 1.0);
+            case 'stealth':
+                return this.stealthMove(destination, action.stealthFactor || 0.8);
+            case 'fast':
+                return this.fastMove(destination, action.urgency || 1.0);
+            default:
+                // Попробуем вызвать через карту стратегий
+                if (this.movementStrategies[strategy]) {
+                    return this.movementStrategies[strategy].call(this, destination, action);
+                }
+                throw new Error(`Unknown movement strategy: ${strategy}`);
+        }
     }
 
     // Логирование перемещения

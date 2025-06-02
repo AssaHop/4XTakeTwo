@@ -1,58 +1,29 @@
-import { StateMachine } from './stateMachine';
-import { getTransitions } from './transitions';
+    // src/ai/fsm/strategyFSM.js
+    import { StateMachine } from './stateMachine.js';
+    import { getTransitions } from './transitions.js';
 
-export class StrategyFSM {
+    export class StrategyFSM {
     constructor(gameState) {
         this.gameState = gameState;
-        this.stateMachine = new StateMachine(
-            this.getCurrentState(), 
-            getTransitions()
-        );
+
+        const initialState = this.getInitialState(gameState);
+        const transitions = getTransitions();
+
+        this.stateMachine = new StateMachine(initialState, transitions);
     }
 
-    // Определение текущего стратегического состояния
-    getCurrentState() {
-        const states = {
-            ATTACK: 'attack',
-            DEFEND: 'defend', 
-            EXPAND: 'expand',
-            ECONOMY: 'economy'
-        };
-
-        // Простая логика определения состояния
-        const enemyUnits = this.gameState.units.filter(
-            u => u.owner !== this.gameState.currentPlayer
-        );
-        const playerUnits = this.gameState.units.filter(
-            u => u.owner === this.gameState.currentPlayer
-        );
-
-        if (enemyUnits.length > playerUnits.length * 1.5) {
-            return states.DEFEND;
-        }
-
-        if (playerUnits.some(u => u.canCapture)) {
-            return states.EXPAND;
-        }
-
-        if (enemyUnits.length > 0) {
-            return states.ATTACK;
-        }
-
-        return states.ECONOMY;
-    }
-
-    // Обновление стратегии
     update() {
-        const newState = this.getCurrentState();
-        this.stateMachine.changeState(newState);
-        
-        // Выполнение действий текущего состояния
+        this.stateMachine.update(this.gameState);
         return this.stateMachine.executeCurrentState(this.gameState);
     }
 
-    // Получение текущего состояния
     getCurrentStrategy() {
         return this.stateMachine.currentState;
     }
-}
+
+    getInitialState(gameState) {
+        const state = 'attack';
+        console.log(`🧭 [FSM] Стартовое стратегическое состояние принудительно установлено в: ${state}`);
+        return state;
+    }
+    }

@@ -6,7 +6,7 @@ import { setupEndTurnButton, updateEndTurnButton } from './uiControls.js';
 import { renderUnits } from './render.js';
 import { highlightUnitContext } from './highlightManager.js';
 import { performAttack } from '../core/combatLogic.js';
-import { runAIForTurn } from '../ai/aiManager.js'; // 🔄 Новый AI вход
+import { runAIForTurn } from '../ai/aiManager.js';
 
 const squashFactor = 0.7;
 
@@ -42,7 +42,7 @@ function handleCanvasClick(event) {
         const attackTargets = Unit.getAttackableHexes(selected);
         const validTarget = attackTargets.find(t => t.q === q && t.r === r && t.s === s);
         if (validTarget) {
-          performAttack(selected, clickedUnit); // FSM обработает post-action
+          performAttack(selected, clickedUnit);
           return;
         }
       }
@@ -70,7 +70,7 @@ function handleCanvasClick(event) {
       if (moved) {
         console.log(`🚶 Unit moved to: (${q}, ${r}, ${s})`);
         renderUnits();
-        evaluatePostAction(selected, { type: 'move' }); // FSM возьмет управление
+        evaluatePostAction(selected, { type: 'move' });
         return;
       }
     }
@@ -85,19 +85,21 @@ function handleEndTurn() {
   // Сбросить действия всех юнитов
   state.units.forEach(unit => unit.resetActions?.());
   state.hasActedThisTurn = false;
+  state.currentPlayer = (state.currentPlayer === 'player1') ? 'enemy' : 'player1';
   updateEndTurnButton();
 
   // 🎯 Переход в фазу AI
   transitionTo(GameState.ENEMY_TURN);
 
   // 🧠 Запуск FSM + Behavior Tree AI
-  setTimeout(() => {
-    runAIForTurn(state);      // ✅ ЗАПУСК AI
-    renderUnits();            // 🔁 Обновить отрисовку
-    updateEndTurnButton(true);
-    transitionTo(GameState.IDLE); // ⬅️ Вернуться в IDLE
-  }, 300);
+  if (state.currentPlayer === 'enemy') {
+    setTimeout(async () => {
+      await runAIForTurn(state);  // ✅ ЗАПУСК AI
+      renderUnits();              // 🔁 Обновить отрисовку
+      updateEndTurnButton(true);
+      transitionTo(GameState.IDLE); // ⬅️ Вернуться в IDLE
+    }, 300);
+  }
 }
-
 
 export { setupEventListeners };

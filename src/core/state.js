@@ -8,6 +8,7 @@ const state = {
   attackHexes: [],
   hasActedThisTurn: false,
   phaseHistory: [],
+  currentPlayer: 'player1', // 🆕 Добавлен текущий игрок
 
   enemyQueue: [],
   enemyQueueIndex: 0,
