@@ -1,6 +1,7 @@
 // src/ai/fsm/states/attackState.js
 import { hexDistance } from '../../../mechanics/hexUtils.js';
 import { hasLineOfSight } from '../../../mechanics/lineOfSight.js';
+import { findPath } from '../../../mechanics/pathfinding.js';
  
 export class AttackState {
   constructor(gameState, owner) {
@@ -96,24 +97,48 @@ export class AttackState {
     return score;
   }
  
-  // Возвращает лучший доступный гекс в сторону цели
+  // Возвращает лучший доступный гекс в сторону цели.
+  // Использует findPath (A*) для построения полного маршрута через карту —
+  // это позволяет обойти препятствия (острова), которые чисто жадный шаг
+  // по прямой дистанции не может обойти (см. known-issues #2/#22).
+  // За этот ход всё равно делается только один шаг, ограниченный moRange:
+  // берём из полного маршрута самую далёкую точку, до которой юнит
+  // физически может дойти сейчас (она есть в getAvailableHexes()).
   bestStepToward(unit, target) {
     const available = unit.getAvailableHexes();
     if (!available.length) return null;
- 
-    // Сортируем по близости к цели
-    available.sort((a, b) => hexDistance(a, target) - hexDistance(b, target));
- 
-    // Берём ближайший свободный гекс
+
     const occupied = new Set(
       this.gameState.units.map(u => `${u.q},${u.r},${u.s}`)
     );
- 
-    for (const hex of available) {
-      const key = `${hex.q},${hex.r},${hex.s}`;
-      if (!occupied.has(key)) return hex;
+    const availableKeys = new Set(
+      available
+        .filter(hex => !occupied.has(`${hex.q},${hex.r},${hex.s}`))
+        .map(hex => `${hex.q},${hex.r},${hex.s}`)
+    );
+
+    const path = findPath(unit, target, this.gameState.mapIndex, unit);
+
+    if (path.length > 0) {
+      // Идём от конца пути к началу — берём самую далёкую точку маршрута,
+      // до которой можно дойти за этот ход.
+      for (let i = path.length - 1; i >= 0; i--) {
+        const key = `${path[i].q},${path[i].r},${path[i].s}`;
+        if (availableKeys.has(key)) return path[i];
+      }
     }
- 
+
+    // findPath не нашёл маршрут (например, цель полностью отрезана) —
+    // fallback на старое поведение: ближайший по прямой свободный гекс.
+    // Не идеально для обхода препятствий, но не оставляет юнит без хода.
+    const sorted = [...available].sort(
+      (a, b) => hexDistance(a, target) - hexDistance(b, target)
+    );
+    for (const hex of sorted) {
+      const key = `${hex.q},${hex.r},${hex.s}`;
+      if (availableKeys.has(key)) return hex;
+    }
+
     return null;
   }
  
