@@ -9,7 +9,7 @@ import { loadGameState, saveGameState } from './savegame.js';
 import { transitionTo, GameState } from './gameStateMachine.js';
 import { initProgressionSystem } from '../mechanics/progressionSystem.js';
 import { initMapIndex } from '../utils/initMapIndex.js';
-import { runAIForTurn } from '../ai/aiManager.js';
+import { runAIForTurn, resetAIState } from '../ai/aiManager.js';
 
 let scale = 1;
 let isDragging = false;
@@ -49,6 +49,8 @@ function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapType
 
   // ✅ Добавляем индекс для AI, pathfinding, LoS
   state.mapIndex = initMapIndex(map);
+  state.initTurnOrder(enemyCount);
+  resetAIState();
 
   if (!map || map.length === 0) {
     console.error('❌ Map generation failed');

@@ -1,7 +1,8 @@
 // 📂 core/classTemplates.js
 const ClassTemplates = {
   WDD: {
-    hp: 3,
+    hp: 10,
+    atDamage: 2,
     moRange: 4,
     viRange: 4,
     weType: ['Small'],
@@ -17,7 +18,8 @@ const ClassTemplates = {
     }
   },
   WCC: {
-    hp: 4,
+    hp: 12,
+    atDamage: 3,
     moRange: 4,
     viRange: 4,
     weType: ['Small', 'Main'],
@@ -33,7 +35,8 @@ const ClassTemplates = {
     }
   },
   WBB: {
-    hp: 6,
+    hp: 14,
+    atDamage: 4,
     moRange: 3,
     viRange: 100,
     weType: ['Main'],
@@ -46,6 +49,7 @@ const ClassTemplates = {
   },
   WSB: {
     hp: 3,
+    atDamage: 3,
     moRange: 3,
     viRange: 6,
     weType: ['Torp'],
@@ -58,6 +62,7 @@ const ClassTemplates = {
   },
   WCA: {
     hp: 4,
+    atDamage: 2,
     moRange: 2,
     viRange: 6,
     weType: ['Small'],
@@ -70,6 +75,7 @@ const ClassTemplates = {
   },
   WLC: {
     hp: 3,
+    atDamage: 3,
     moRange: 3,
     viRange: 6,
     weType: ['Main'],

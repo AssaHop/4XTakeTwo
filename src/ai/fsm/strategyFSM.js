@@ -1,29 +1,25 @@
-    // src/ai/fsm/strategyFSM.js
-    import { StateMachine } from './stateMachine.js';
-    import { getTransitions } from './transitions.js';
+// src/ai/fsm/strategyFSM.js
+import { AttackState } from './states/attackState.js';
 
-    export class StrategyFSM {
-    constructor(gameState) {
-        this.gameState = gameState;
+export class StrategyFSM {
+  constructor(gameState, owner) {
+    this.gameState    = gameState;
+    this.owner        = owner;
+    this.currentState = 'attack'; // стартовое состояние
+  }
 
-        const initialState = this.getInitialState(gameState);
-        const transitions = getTransitions();
+  update() {
+    // Здесь потом добавим переходы между состояниями
+    return this.executeCurrentState();
+  }
 
-        this.stateMachine = new StateMachine(initialState, transitions);
+  executeCurrentState() {
+    switch (this.currentState) {
+      case 'attack':
+        return new AttackState(this.gameState, this.owner).execute();
+      // defend, expand, economy — позже
+      default:
+        return [];
     }
-
-    update() {
-        this.stateMachine.update(this.gameState);
-        return this.stateMachine.executeCurrentState(this.gameState);
-    }
-
-    getCurrentStrategy() {
-        return this.stateMachine.currentState;
-    }
-
-    getInitialState(gameState) {
-        const state = 'attack';
-        console.log(`🧭 [FSM] Стартовое стратегическое состояние принудительно установлено в: ${state}`);
-        return state;
-    }
-    }
+  }
+}

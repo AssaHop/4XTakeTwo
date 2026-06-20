@@ -1,6 +1,5 @@
-import { renderUnits, renderMap } from '../ui/render.js';
 import { state } from '../core/state.js';
-import { updateEndTurnButton } from '../ui/uiControls.js';
+
 import { ClassTemplates } from '../core/classTemplates.js';
 import { hasLineOfSight } from './lineOfSight.js';
 import { applyModules } from '../core/applyModules.js';
@@ -113,7 +112,6 @@ class Unit {
     this.canAct = false;
 
     console.log(`🚶 [MOVE] ${this.type} moved to (${q},${r},${s})`);
-    renderMap(state.scale, state.offset);
     evaluatePostAction(this, { type: 'move' });
     return true;
   }
@@ -165,7 +163,7 @@ class Unit {
       if (visited.has(key)) continue;
       visited.add(key);
 
-      const cell = state.map.flat().find(c => c.q === current.q && c.r === current.r && c.s === current.s);
+      const cell = state.mapIndex?.[key];
       if (!cell) continue;
 
       const terrain = cell.terrainType;
@@ -230,7 +228,7 @@ class Unit {
           const target = state.units.find(u => u.q === q && u.r === r && u.s === s && u.owner !== unit.owner);
           if (!target) continue;
 
-          if (hasLineOfSight(unit, target, state.map, weapType)) {
+          if (hasLineOfSight(unit, target, state.mapIndex, weapType)) {
             targets.add(`${q},${r},${s}`);
           }
         }
@@ -264,8 +262,25 @@ class Unit {
 
 const units = state.units;
 
+// Цвет по владельцу — игрок синий, каждый враг свой цвет
+const OWNER_COLORS = {
+  player1: '#2200cc',
+  enemy0:  '#cc2222',
+  enemy1:  '#cc7700',
+  enemy2:  '#aa00cc',
+  enemy3:  '#007755',
+  enemy4:  '#cc2277',
+  enemy5:  '#997700',
+  enemy6:  '#005599',
+  enemy7:  '#884400',
+};
+
+function getOwnerColor(owner) {
+  return OWNER_COLORS[owner] ?? '#555555';
+}
+
 function addUnit(q, r, s, type, owner) {
-  const cell = state.map.flat().find(c => c.q === q && c.r === r && c.s === s);
+  const cell = state.mapIndex?.[`${q},${r},${s}`];
   const unitOnCell = units.find(u => u.q === q && u.r === r && u.s === s);
   if (!cell || !ClassTemplates[type] || unitOnCell) return;
 
@@ -276,9 +291,8 @@ function addUnit(q, r, s, type, owner) {
 
   const template = ClassTemplates[type];
   const unit = new Unit(q, r, s, type, owner, template);
-  unit.color = owner?.startsWith('enemy') ? '#755' : '#000';
+  unit.color = getOwnerColor(owner);
   units.push(unit);
-  renderUnits();
   console.log(`✅ Unit ADDED: ${type} at (${q}, ${r}, ${s}) | owner: ${owner}`);
 }
 
@@ -311,8 +325,6 @@ function selectUnit(unit) {
   import('../ui/highlightManager.js').then(module => {
     module.highlightUnitContext(unit);
   });
-
-  renderUnits();
 }
 
 function resetUnitsActions() {

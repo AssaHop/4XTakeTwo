@@ -1,5 +1,4 @@
 import { state } from './state.js';
-import { updateEndTurnButton } from '../ui/uiControls.js';
 import {
   highlightUnitContext,
   highlightOnlyAttacks,
@@ -96,7 +95,6 @@ function evaluatePostAction(unit, { type, killed = false }) {
     unit.deselect?.();
     state.selectedUnit = null;
     state.hasActedThisTurn = true;
-    updateEndTurnButton();
     transitionTo(GameState.IDLE);
     clearAllHighlights();
   } else {

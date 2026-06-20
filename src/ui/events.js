@@ -1,14 +1,20 @@
-import { selectUnit, generateUnits, Unit } from '../mechanics/units.js';
+import { selectUnit, Unit } from '../mechanics/units.js';
 import { pixelToCube, cubeRound } from '../world/map.js';
 import { state } from '../core/state.js';
 import { GameState, transitionTo, evaluatePostAction } from '../core/gameStateMachine.js';
 import { setupEndTurnButton, updateEndTurnButton } from './uiControls.js';
-import { renderUnits } from './render.js';
-import { highlightUnitContext } from './highlightManager.js';
+import { renderMap, renderUnits } from './render.js';
+import { highlightUnitContext, clearAllHighlights } from './highlightManager.js';
 import { performAttack } from '../core/combatLogic.js';
 import { runAIForTurn } from '../ai/aiManager.js';
 
 const squashFactor = 0.7;
+
+// 🎨 Централизованный рендер после любого действия
+function redraw() {
+  renderMap(state.scale, state.offset);
+  renderUnits(state.scale, state.offset);
+}
 
 function setupEventListeners() {
   const canvas = document.getElementById('game-canvas');
@@ -24,6 +30,9 @@ function cubeEqualsWithEpsilon(a, b, epsilon = 0.1) {
 }
 
 function handleCanvasClick(event) {
+  // Блокируем клики во время хода AI
+  if (state.isAITurn()) return;
+
   const rect = event.target.getBoundingClientRect();
   const x = (event.clientX - rect.left - state.offset.x) / state.scale;
   const y = (event.clientY - rect.top - state.offset.y) / state.scale / squashFactor;
@@ -43,6 +52,8 @@ function handleCanvasClick(event) {
         const validTarget = attackTargets.find(t => t.q === q && t.r === r && t.s === s);
         if (validTarget) {
           performAttack(selected, clickedUnit);
+          redraw();
+          updateEndTurnButton();
           return;
         }
       }
@@ -50,10 +61,12 @@ function handleCanvasClick(event) {
     }
 
     // ✅ SELECT FRIENDLY
-    const canSelect = clickedUnit.canAct || clickedUnit.canMove || (clickedUnit.canRepeatAttackOnKill && clickedUnit.lastAttackWasKill);
+    const canSelect = clickedUnit.canAct || clickedUnit.canMove ||
+      (clickedUnit.canRepeatAttackOnKill && clickedUnit.lastAttackWasKill);
     if (canSelect) {
       selectUnit(clickedUnit);
       transitionTo(GameState.UNIT_SELECTED);
+      redraw();
     } else {
       console.log('⚠️ Clicked unit cannot act or has no actions left.');
     }
@@ -69,8 +82,8 @@ function handleCanvasClick(event) {
       const moved = selected.moveTo(q, r, s);
       if (moved) {
         console.log(`🚶 Unit moved to: (${q}, ${r}, ${s})`);
-        renderUnits();
-        evaluatePostAction(selected, { type: 'move' });
+        redraw();
+        updateEndTurnButton();
         return;
       }
     }
@@ -79,27 +92,60 @@ function handleCanvasClick(event) {
   console.log('❌ Clicked hex: No valid action.');
 }
 
-function handleEndTurn() {
+// 🔄 Запускает ходы AI по очереди пока не дойдёт до player1
+// Задержка в мс между ходами AI — чтобы видеть что происходит
+const AI_TURN_DELAY = 600;
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function runAISequence() {
+  while (state.isAITurn()) {
+    const currentAI = state.currentPlayer;
+    console.log(`🤖 AI ход: ${currentAI}`);
+    transitionTo(GameState.ENEMY_TURN);
+
+    // Сбрасываем действия юнитов ЭТОГО AI перед его ходом
+    state.resetUnitsForPlayer(currentAI);
+
+    // Пауза перед ходом — видно кто ходит
+    await sleep(AI_TURN_DELAY);
+
+    await runAIForTurn(state, currentAI);
+    redraw();
+
+    // Пауза после хода — видно результат
+    await sleep(AI_TURN_DELAY);
+
+    state.nextTurn();
+    console.log(`➡️ Следующий игрок: ${state.currentPlayer}`);
+  }
+
+  // Вернулись к player1 — сбрасываем его юниты
+  state.resetUnitsForPlayer('player1');
+  updateEndTurnButton();
+  transitionTo(GameState.IDLE);
+  console.log('👤 Ход игрока');
+}
+
+async function handleEndTurn() {
+  if (state.isAITurn()) return; // защита от двойного клика
+
   console.log('🔚 End turn clicked');
 
-  // Сбросить действия всех юнитов
-  state.units.forEach(unit => unit.resetActions?.());
-  state.hasActedThisTurn = false;
-  state.currentPlayer = (state.currentPlayer === 'player1') ? 'enemy' : 'player1';
+  // Сбросить выделение
+  state.selectedUnit = null;
+  clearAllHighlights();
+
+  // Переход к следующему игроку
+  state.nextTurn();
   updateEndTurnButton();
 
-  // 🎯 Переход в фазу AI
-  transitionTo(GameState.ENEMY_TURN);
-
-  // 🧠 Запуск FSM + Behavior Tree AI
-  if (state.currentPlayer === 'enemy') {
-    setTimeout(async () => {
-      await runAIForTurn(state);  // ✅ ЗАПУСК AI
-      renderUnits();              // 🔁 Обновить отрисовку
-      updateEndTurnButton(true);
-      transitionTo(GameState.IDLE); // ⬅️ Вернуться в IDLE
-    }, 300);
+  if (state.isAITurn()) {
+    // Небольшая задержка чтобы UI успел обновиться
+    setTimeout(() => runAISequence(), 200);
   }
 }
 
-export { setupEventListeners };
+export { setupEventListeners, redraw };

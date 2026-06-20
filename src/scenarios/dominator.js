@@ -14,6 +14,7 @@ export const dominator = {
     const units = [];
 
     const playerSpawns = getTemplateSpawnCells('WDD', map);
+    // Враги могут спавниться на любом водном тайле
     const enemySpawns = getTemplateSpawnCells('WBB', map);
 
     const p1_1 = getRandomFreeHex(playerSpawns, units);
@@ -21,15 +22,21 @@ export const dominator = {
 
     if (p1_1) units.push({ ...p1_1, type: 'WDD', owner: 'player1' });
     if (p1_2) units.push({ ...p1_2, type: 'WCC', owner: 'player1' });
-    
+
+    // Чередуем типы врагов для тестирования разных модулей
+    // WBB - базовый, WDD - Charge+Flee, WCC - Charge+Percy
+    const enemyTypes = ['WBB', 'WDD', 'WCC', 'WBB', 'WDD', 'WCC', 'WBB', 'WBB'];
+
     for (let i = 0; i < enemyCount; i++) {
-      const hex = getRandomFreeHex(enemySpawns, units);
+      const type = enemyTypes[i % enemyTypes.length];
+      const spawnCells = getTemplateSpawnCells(type, map);
+      const hex = getRandomFreeHex(spawnCells, units);
       if (hex) {
         units.push({
           q: hex.q,
           r: hex.r,
           s: hex.s,
-          type: i % 2 === 0 ? 'WBB' : 'WBB',
+          type,
           owner: `enemy${i}`
         });
       }

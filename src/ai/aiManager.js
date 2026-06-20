@@ -1,53 +1,134 @@
+// src/ai/aiManager.js
 import { StrategyFSM } from './fsm/strategyFSM.js';
-import { AttackActions } from './actions/attackActions.js';
-import { MoveActions } from './actions/moveActions.js';
-import { EconomicActions } from './actions/economicActions.js';
+import { performAttack } from '../core/combatLogic.js';
+import { hexDistance } from '../mechanics/hexUtils.js';
+import { hasLineOfSight } from '../mechanics/lineOfSight.js';
 
-let fsm = null;
+const fsmMap = new Map();
 
-export async function runAIForTurn(gameState) {
-  if (gameState.currentPlayer !== 'enemy') {
-    console.warn('🚨 Попытка запуска AI вне его хода');
-    return;
+export async function runAIForTurn(gameState, owner) {
+  if (!owner || owner === 'player1') return;
+
+  if (!fsmMap.has(owner)) {
+    fsmMap.set(owner, new StrategyFSM(gameState, owner));
+    console.log(`🧠 FSM создан для ${owner}`);
   }
 
-  if (!fsm) {
-    fsm = new StrategyFSM(gameState);
-  }
-
+  const fsm = fsmMap.get(owner);
   const actions = fsm.update();
-  console.log('🧠 FSM сгенерировал действий:', actions.length);
-
-  const attackManager = new AttackActions(gameState);
-  const moveManager = new MoveActions(gameState);
-  const economyManager = new EconomicActions(gameState);
+  console.log(`🧠 [${owner}] actions:`, actions.map(a => `${a.type}:${a.unit?.type}`));
 
   for (const action of actions) {
-    try {
-      switch (action.type) {
-        case 'attack':
-          await attackManager.executeAction(action);
-          break;
-        case 'move':
-        case 'expand':
-        case 'defend':
-          await moveManager.executeAction(action);
-          break;
-        case 'build':
-          await economyManager.executeAction(action);
-          break;
-        case 'idle':
-          if (action.unit) {
-            console.log(`🛑 ${action.unit.type} (${action.unit.q},${action.unit.r},${action.unit.s}) отдыхает`);
-          } else {
-            console.log(`🛑 Неизвестный юнит отдыхает`);
-          }
-          break;
-        default:
-          console.warn(`⚠️ Неизвестный тип действия: ${action.type}`);
-      }
-    } catch (err) {
-      console.error(`🔥 Ошибка при выполнении действия ${action.type}`, err);
-    }
+    if (!action.unit) continue;
+    await executeAction(action, gameState, owner);
   }
+}
+
+async function executeAction(action, gameState, owner) {
+  const { unit, target, destination } = action;
+
+  switch (action.type) {
+
+    case 'move': {
+      if (!unit.canMove || !destination) break;
+      console.log(`🚢 [${owner}] ${unit.type} идёт к (${destination.q},${destination.r},${destination.s})`);
+      unit.moveTo(destination.q, destination.r, destination.s);
+
+      // Charge: атакуем после движения если цель в зоне и есть LoS
+      if (unit.canAct && unit.hasModule?.('Charge') && target) {
+        const dist = hexDistance(unit, target);
+        const los = dist <= unit.atRange && hasLineOfSight(unit, target, gameState.mapIndex, unit.weType);
+        if (los) {
+          console.log(`⚡ [${owner}] ${unit.type} Charge → атакует ${target.type}`);
+          const killed = executeAttack(unit, target, gameState, owner);
+
+          // Flee: отходим после атаки
+          if (unit.canMove && unit.hasModule?.('Flee')) {
+            const safeHex = findSafeHex(unit, gameState);
+            if (safeHex) {
+              console.log(`🏃 [${owner}] ${unit.type} Flee → отходит`);
+              unit.moveTo(safeHex.q, safeHex.r, safeHex.s);
+            }
+          }
+
+          // Percy: повторная атака если убили
+          if (killed && unit.canAct && unit.hasModule?.('Percy')) {
+            const nextTarget = findBestTarget(unit, gameState);
+            if (nextTarget) {
+              console.log(`🔁 [${owner}] ${unit.type} Percy → атакует ${nextTarget.type}`);
+              executeAttack(unit, nextTarget, gameState, owner);
+            }
+          }
+        }
+      }
+      break;
+    }
+
+    case 'attack': {
+      if (!unit.canAct || !target) break;
+      console.log(`⚔️ [${owner}] ${unit.type} атакует ${target.type}`);
+      const killed = executeAttack(unit, target, gameState, owner);
+
+      // Percy: повторная атака если убили
+      if (killed && unit.canAct && unit.hasModule?.('Percy')) {
+        const nextTarget = findBestTarget(unit, gameState);
+        if (nextTarget) {
+          console.log(`🔁 [${owner}] ${unit.type} Percy → атакует ${nextTarget.type}`);
+          executeAttack(unit, nextTarget, gameState, owner);
+        }
+      }
+
+      // Flee: отходим после атаки
+      if (unit.canMove && unit.hasModule?.('Flee')) {
+        const safeHex = findSafeHex(unit, gameState);
+        if (safeHex) {
+          console.log(`🏃 [${owner}] ${unit.type} Flee → отходит`);
+          unit.moveTo(safeHex.q, safeHex.r, safeHex.s);
+        }
+      }
+      break;
+    }
+
+    case 'idle':
+      console.log(`🛑 [${owner}] ${unit.type} idle`);
+      break;
+  }
+}
+
+// Возвращает true если цель убита
+function executeAttack(unit, target, gameState, owner) {
+  if (!unit.canAct || !target) return false;
+  const hpBefore = target.hp;
+  performAttack(unit, target);
+  return target.hp <= 0 || !gameState.units.includes(target);
+}
+
+// Лучшая цель для Percy (из оставшихся живых врагов в зоне атаки)
+function findBestTarget(unit, gameState) {
+  const targets = gameState.units.filter(u =>
+    u.owner === 'player1' &&
+    hexDistance(unit, u) <= unit.atRange
+  );
+  if (!targets.length) return null;
+  return targets.sort((a, b) => a.hp - b.hp)[0]; // добиваем слабейшего
+}
+
+// Безопасный гекс для отхода (дальше от врагов)
+function findSafeHex(unit, gameState) {
+  const available = unit.getAvailableHexes();
+  if (!available.length) return null;
+
+  const enemies = gameState.units.filter(u => u.owner === 'player1');
+  if (!enemies.length) return available[0];
+
+  // Выбираем гекс максимально далёкий от всех врагов
+  return available.sort((a, b) => {
+    const distA = Math.min(...enemies.map(e => hexDistance(a, e)));
+    const distB = Math.min(...enemies.map(e => hexDistance(b, e)));
+    return distB - distA;
+  })[0];
+}
+
+export function resetAIState() {
+  fsmMap.clear();
 }

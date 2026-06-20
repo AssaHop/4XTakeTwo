@@ -1,7 +1,6 @@
+
 // 📂 core/combatLogic.js
 
-import { renderUnits } from '../ui/render.js';
-import { updateEndTurnButton } from '../ui/uiControls.js';
 import { state } from '../core/state.js';
 import { evaluatePostAction } from './gameStateMachine.js';
 import { hasModule } from '../mechanics/units.js';
@@ -19,7 +18,7 @@ function performAttack(attacker, target) {
     return;
   }
 
-  target.hp -= attacker.atDamage || 1;
+  target.hp = Math.max(0, target.hp - (attacker.atDamage || 1));
   attacker.canAct = false;
 
   console.log(`⚔️ ${attacker.type} атакует ${target.type} → ${target.hp}/${target.maxHp}`);
@@ -62,8 +61,6 @@ function performAttack(attacker, target) {
 
   evaluatePostAction(attacker, { type: 'attack', killed });
   state.hasActedThisTurn = true;
-  renderUnits(state.scale, state.offset);
-  updateEndTurnButton(true);
 }
 
 function canAttack(attacker, target) {

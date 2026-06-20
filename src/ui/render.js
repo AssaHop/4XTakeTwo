@@ -143,23 +143,25 @@ function drawUnit(ctx, x, y, unit) {
     ctx.arc(x, y, HEX_RADIUS / 2, 0, 2 * Math.PI);
   }
 
-  ctx.fillStyle = unit.color
+  ctx.fillStyle = unit.color;
   ctx.fill();
 
-  if (unit.selected) {
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = '#ff0';
-    ctx.stroke();
-  } else {
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = '#000';
-    ctx.stroke();
-  }
+  // Обводка: жёлтая если выделен, иначе цвет владельца
+  ctx.lineWidth = unit.selected ? 3 : 1.5;
+  ctx.strokeStyle = unit.selected ? '#ffff00' : unit.color;
+  ctx.stroke();
 
+  // HP
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 12px sans-serif';
+  ctx.font = 'bold 11px sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText(`${unit.hp}/${unit.maxHp}`, x, y + HEX_RADIUS / 2 + 12);
+
+  // Тип юнита (сокращённо)
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 10px sans-serif';
+  ctx.fillText(unit.type, x, y + 3);
+
   ctx.restore();
 }
 
