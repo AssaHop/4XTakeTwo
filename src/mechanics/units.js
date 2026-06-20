@@ -264,7 +264,7 @@ const units = state.units;
 
 // Цвет по владельцу — игрок синий, каждый враг свой цвет
 const OWNER_COLORS = {
-  player1: '#2200cc',
+  player1: '#2255cc',
   enemy0:  '#cc2222',
   enemy1:  '#cc7700',
   enemy2:  '#aa00cc',

@@ -2,7 +2,7 @@ export const WeaponTypes = {
   Main: {
     name: 'Main Gun',
     description: 'Main battery',
-    range: 5,
+    range: 6,
     piercesCover: true,
     canTargetSubmerged: false,
     aoeRadius: 0,
@@ -13,7 +13,7 @@ export const WeaponTypes = {
   Torp: {
     name: 'Torpedo',
     description: 'Torpedoes',
-    range: 4,
+    range: 7,
     piercesCover: false,
     canTargetSubmerged: true,
     aoeRadius: 0,
@@ -24,7 +24,7 @@ export const WeaponTypes = {
   Small: {
     name: 'Light Cannon',
     description: 'Secondary battery',
-    range: 5,
+    range: 6,
     piercesCover: false,
     canTargetSubmerged: false,
     aoeRadius: 0,
