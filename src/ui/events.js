@@ -12,6 +12,17 @@ import { processAviationTurn } from '../core/aviationLogic.js';
 
 const squashFactor = 0.7;
 
+function checkEndConditions() {
+  if (state.gameOver || !state.scenario) return;
+  if (state.scenario.winCondition?.(state)) {
+    state.gameOver = true;
+    setTimeout(() => alert('🏆 Победа! Все враги уничтожены.'), 50);
+  } else if (state.scenario.loseCondition?.(state)) {
+    state.gameOver = true;
+    setTimeout(() => alert('💀 Поражение! Ваш флот уничтожен.'), 50);
+  }
+}
+
 // 🎨 Централизованный рендер после любого действия
 function redraw() {
   renderMap(state.scale, state.offset);
@@ -32,6 +43,7 @@ function cubeEqualsWithEpsilon(a, b, epsilon = 0.1) {
 }
 
 function handleCanvasClick(event) {
+  if (state.gameOver) return;
   // Блокируем клики во время хода AI
   if (state.isAITurn()) return;
 
@@ -55,6 +67,7 @@ function handleCanvasClick(event) {
         if (validTarget) {
           performAttack(selected, clickedUnit);
           redraw();
+          checkEndConditions();
           updateEndTurnButton();
           return;
         }
@@ -119,6 +132,8 @@ async function runAISequence() {
 
     await runAIForTurn(state, currentAI);
     redraw();
+    checkEndConditions();
+    if (state.gameOver) return;
 
     // Пауза после хода — видно результат
     await sleep(AI_TURN_DELAY);
@@ -136,6 +151,7 @@ async function runAISequence() {
 }
 
 async function handleEndTurn() {
+  if (state.gameOver) return;
   if (state.isAITurn()) return; // защита от двойного клика
 
   console.log('🔚 End turn clicked');

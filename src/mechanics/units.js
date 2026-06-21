@@ -36,10 +36,13 @@ class Unit {
       this.atRange = options.atRange || 1;
     }
 
-    this.dangerScore  = options.dangerScore  ?? 0;
-    this.lifeTurns    = options.lifeTurns    ?? null;
-    this.noCounter    = options.noCounter    ?? false;
-    this.targetClass  = options.targetClass  ?? 'surface';
+    this.dangerScore   = options.dangerScore   ?? 0;
+    this.lifeTurns     = options.lifeTurns     ?? null;
+    this.noCounter     = options.noCounter     ?? false;
+    this.targetClass   = options.targetClass   ?? 'surface';
+    this.veteranLevel  = 0;
+    this.kills         = 0;
+    this.weaponUnlocks = options.weaponUnlocks ?? {};
 
     this.canMove = true;
     this.canAct = true;
@@ -215,7 +218,10 @@ class Unit {
 
   static getAttackableHexes(unit) {
     const targets = new Set();
-    const weaponTypes = Array.isArray(unit.weType) ? unit.weType : [unit.weType];
+    const allWeapons = Array.isArray(unit.weType) ? unit.weType : [unit.weType];
+    const weaponTypes = Object.keys(unit.weaponUnlocks || {}).length > 0
+      ? allWeapons.filter(w => (unit.weaponUnlocks[w] ?? 0) <= (unit.veteranLevel ?? 0))
+      : allWeapons;
 
     for (let weapType of weaponTypes) {
       const config = WeaponTypes[weapType];

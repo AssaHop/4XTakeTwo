@@ -1,5 +1,5 @@
 import { renderMap, renderUnits } from '../ui/render.js';
-import { generateScenario, getInitialUnitsForScenario, getInitialCapturePointsForScenario } from '../scenarios/scenarios.js';
+import { generateScenario, getInitialUnitsForScenario, getInitialCapturePointsForScenario, getScenarioById } from '../scenarios/scenarios.js';
 import { generateUnits } from '../mechanics/units.js';
 import { setupUI } from '../ui/setup.js';
 import { setupEventListeners } from '../ui/events.js';
@@ -51,6 +51,8 @@ function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapType
   state.mapIndex = initMapIndex(map);
   state.capturePoints = getInitialCapturePointsForScenario(scenarioName, state.mapIndex);
   state.initTurnOrder(enemyCount);
+  state.scenario = getScenarioById(scenarioName);
+  state.gameOver = false;
   resetAIState();
 
   if (!map || map.length === 0) {

@@ -15,9 +15,12 @@ function getWeaponRange(unit) {
 // Возвращает реальный урон attacker по target с учётом damageVs/targetClass,
 // либо null если ни одно оружие не может поразить класс цели.
 export function getAttackDamage(attacker, target) {
-  const weapons = Array.isArray(attacker.weType)
+  const allWeapons = Array.isArray(attacker.weType)
     ? attacker.weType
     : (attacker.weType ? [attacker.weType] : []);
+  const weapons = Object.keys(attacker.weaponUnlocks || {}).length > 0
+    ? allWeapons.filter(w => (attacker.weaponUnlocks[w] ?? 0) <= (attacker.veteranLevel ?? 0))
+    : allWeapons;
   const tClass = target.targetClass || 'surface';
 
   let best = null;
@@ -56,6 +59,12 @@ function performAttack(attacker, target) {
     if (idx >= 0) state.units.splice(idx, 1);
     console.log(`💀 ${target.type} погиб`);
     killed = true;
+    attacker.kills = (attacker.kills || 0) + 1;
+    const newLevel = attacker.kills >= 6 ? 3 : attacker.kills >= 3 ? 2 : 1;
+    if (newLevel > (attacker.veteranLevel || 0)) {
+      attacker.veteranLevel = newLevel;
+      console.log(`⭐ [VET] ${attacker.type} достиг ветеранского уровня ${newLevel} (${attacker.kills} килов)`);
+    }
   }
 
   // ⚙️ Эффекты модулей

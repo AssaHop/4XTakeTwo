@@ -60,12 +60,10 @@ export const dominator = {
   },
 
   winCondition: (state) => {
-    const enemies = state.units.filter(u => u.owner?.startsWith('enemy') && u.alive);
-    return enemies.length === 0;
+    return !state.units.some(u => u.owner?.startsWith('enemy'));
   },
 
   loseCondition: (state) => {
-    const players = state.units.filter(u => u.owner === 'player1' && u.alive);
-    return players.length === 0;
+    return !state.units.some(u => u.owner === 'player1');
   }
 };

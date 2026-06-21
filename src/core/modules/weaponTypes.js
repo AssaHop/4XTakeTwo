@@ -36,5 +36,18 @@ export const WeaponTypes = {
     blockLOS: ['hill', 'mount', 'peak'],
     // Корабли полный урон, частичное ПВО (WDD/WCC), не подлодки.
     damageVs: { surface: 1.0, air: 0.5 }
+  },
+
+  DC: {
+    name: 'Depth Charge',
+    description: 'Anti-submarine weapon; cannot target surface ships or aircraft',
+    range: 3,
+    piercesCover: false,
+    canTargetSubmerged: true,
+    aoeRadius: 0,
+    tags: ['underwater', 'anti-sub'],
+    blockLOS: ['hill', 'mount', 'peak'],
+    // Только против подлодок. Нет 'surface'/'air' = не может выбрать такую цель.
+    damageVs: { sub: 1.0 }
   }
 };

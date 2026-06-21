@@ -43,7 +43,8 @@ const ClassTemplates = {
     atDamage: 4,
     moRange: 3,
     viRange: 100,
-    weType: ['Main'],
+    weType: ['Main', 'Small'],
+    weaponUnlocks: { Small: 1 },
     targetClass: 'surface',
     spawnTerrain: ['surf', 'water', 'deep'],
     modules: ['Sail', 'Navy'],
@@ -84,14 +85,16 @@ const ClassTemplates = {
     }
   },
   WLC: {
-    hp: 3,
-    atDamage: 3,
+    // Amphibious assault ship: moves on water AND land; designed for capturing coastal objectives
+    hp: 5,
+    atDamage: 2,
     moRange: 3,
     viRange: 6,
     weType: ['Main'],
     targetClass: 'surface',
     spawnTerrain: ['surf', 'water', 'deep'],
-    dangerScore: 10,
+    modules: ['Sail', 'Navy', 'Dual'],
+    dangerScore: 20,
     aiProfile: {
       role: 'aggressive',
       risk: 0.6
@@ -118,6 +121,7 @@ const ClassTemplates = {
     weType: ['Small'],
     targetClass: 'air',
     spawnTerrain: ['surf', 'water', 'deep'],
+    modules: ['Air'],
     dangerScore: 20,
     lifeTurns: 6,
     noCounter: true,
@@ -134,6 +138,7 @@ const ClassTemplates = {
     weType: ['Main'],
     targetClass: 'air',
     spawnTerrain: ['surf', 'water', 'deep'],
+    modules: ['Air'],
     dangerScore: 35,
     lifeTurns: 4,
     noCounter: true,
@@ -150,11 +155,30 @@ const ClassTemplates = {
     weType: ['Torp'],
     targetClass: 'air',
     spawnTerrain: ['surf', 'water', 'deep'],
+    modules: ['Air'],
     dangerScore: 35,
     lifeTurns: 4,
     noCounter: true,
     aiProfile: {
       role: 'neutral',
+      risk: 0.4
+    }
+  },
+
+  ASP: {
+    // Anti-Submarine Patrol: high vision scout, depth charges against WSB only
+    hp: 6,
+    atDamage: 3,
+    moRange: 4,
+    viRange: 8,
+    weType: ['DC'],
+    targetClass: 'surface',
+    spawnTerrain: ['surf', 'water', 'deep'],
+    moveTerrain: ['surf', 'water', 'deep'],
+    modules: ['Sail', 'Navy'],
+    dangerScore: 15,
+    aiProfile: {
+      role: 'scout',
       risk: 0.4
     }
   }
