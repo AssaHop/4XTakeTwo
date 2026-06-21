@@ -40,20 +40,24 @@ export class AttackState {
   }
  
   decideAction(unit, targets) {
-    if (!targets.length) return { type: 'idle', unit };
- 
+    if (!targets.length) {
+      return this.decideCaptureAction(unit) || { type: 'idle', unit };
+    }
+
     // Выбираем лучшую цель через scoring
     const scored = targets.map(t => ({
       target: t,
       score:  this.scoreTarget(unit, t)
     })).sort((a, b) => b.score - a.score);
- 
+
     const best = scored[0];
-    if (!best || best.score < 0) return { type: 'idle', unit };
- 
+    // Отрицательный score — цель далеко или мы слабы, но всё равно двигаемся
+    // (score влияет на выбор КОГО атаковать, не на то атаковать ли вообще)
+    if (!best) return { type: 'idle', unit };
+
     const target = best.target;
     const dist   = hexDistance(unit, target);
- 
+
     // Можем атаковать прямо сейчас — проверяем дистанцию И линию огня
     if (unit.canAct && dist <= unit.atRange) {
       const los = hasLineOfSight(unit, target, this.gameState.mapIndex, unit.weType);
@@ -64,21 +68,23 @@ export class AttackState {
         if (dest) return { type: 'move', unit, destination: dest, target };
       }
     }
- 
-    // Двигаемся к цели если можем
+
+    // Нет атаки — сравниваем: идти к врагу или к точке захвата
+    const cpAction = this.decideCaptureAction(unit);
+    if (cpAction && cpAction.cpScore > best.score) return cpAction;
+
+    // Двигаемся к цели, останавливаясь у края дальности (не вплотную)
     if (unit.canMove) {
-      const dest = this.bestStepToward(unit, target);
+      const optimalRange = Math.max(0, unit.atRange - 1);
+      const dest = this.bestStepToward(unit, target, optimalRange);
       if (dest) return { type: 'move', unit, destination: dest, target };
     }
- 
-    // Nothing to do against enemies — try capture points
-    const cpAction = this.decideCaptureAction(unit);
-    if (cpAction) return cpAction;
 
-    return { type: 'idle', unit };
+    return cpAction || { type: 'idle', unit };
   }
 
-  // Move toward an unclaimed or enemy-owned capture point when idle
+  // Move toward an unclaimed or enemy-owned capture point.
+  // Returns action with cpScore so decideAction can compare vs enemy chase.
   decideCaptureAction(unit) {
     if (!unit.canMove) return null;
     const cps = (this.gameState.capturePoints || [])
@@ -88,12 +94,12 @@ export class AttackState {
     const scored = cps.map(cp => {
       let score = cp.owner ? 40 : 60;
       if (cp.claimant === this.owner) score += 20;
-      score -= hexDistance(unit, cp) * 1.5;
+      score -= hexDistance(unit, cp) * 1.0;
       return { cp, score };
     }).sort((a, b) => b.score - a.score);
 
     const best = scored[0];
-    if (!best || best.score < 0) return null;
+    if (!best) return null;
 
     // Already in contest range — stay put, capture logic handles the rest
     if (hexDistance(unit, best.cp) <= 3) return null;
@@ -101,40 +107,43 @@ export class AttackState {
     const dest = this.bestStepToward(unit, best.cp);
     if (!dest) return null;
 
-    return { type: 'move', unit, destination: dest };
+    return { type: 'move', unit, destination: dest, cpScore: best.score };
   }
 
   scoreTarget(unit, target) {
     let score = 0;
- 
+
     // Приоритет: атаковать player1 сильнее чем других AI
     if (target.owner === 'player1') score += 50;
- 
+
+    // Опасные юниты имеют приоритет (Percy/Charge цепочки особенно опасны)
+    const dangerBonus = { WCC: 25, WDD: 15, WBB: 10 };
+    score += dangerBonus[target.type] || 0;
+
     // Добить раненого выгодно
     const hpPercent = target.hp / (target.maxHp || target.hp);
     score += (1 - hpPercent) * 30;
- 
+
     // Можем убить этим ударом — очень ценно
     if (target.hp <= (unit.atDamage || 1)) score += 40;
- 
-    // Штраф за дистанцию
+
+    // Штраф за дистанцию — уменьшен с 3 до 1 чтобы дальние юниты не idle
     const dist = hexDistance(unit, target);
-    score -= dist * 3;
- 
+    score -= dist * 1;
+
     // Не атаковать если сами почти мертвы
     if (unit.hp <= 1) score -= 30;
- 
+
     return score;
   }
- 
+
   // Возвращает лучший доступный гекс в сторону цели.
   // Использует findPath (A*) для построения полного маршрута через карту —
   // это позволяет обойти препятствия (острова), которые чисто жадный шаг
   // по прямой дистанции не может обойти (см. known-issues #2/#22).
-  // За этот ход всё равно делается только один шаг, ограниченный moRange:
-  // берём из полного маршрута самую далёкую точку, до которой юнит
-  // физически может дойти сейчас (она есть в getAvailableHexes()).
-  bestStepToward(unit, target) {
+  // За этот ход всё равно делается только один шаг, ограниченный moRange.
+  // optimalRange: не заходить ближе этой дистанции к цели (range-aware stop).
+  bestStepToward(unit, target, optimalRange = 0) {
     const available = unit.getAvailableHexes();
     if (!available.length) return null;
 
@@ -150,17 +159,20 @@ export class AttackState {
     const path = findPath(unit, target, this.gameState.mapIndex, unit);
 
     if (path.length > 0) {
-      // Идём от конца пути к началу — берём самую далёкую точку маршрута,
-      // до которой можно дойти за этот ход.
-      for (let i = path.length - 1; i >= 0; i--) {
-        const key = `${path[i].q},${path[i].r},${path[i].s}`;
-        if (availableKeys.has(key)) return path[i];
+      // Два прохода: сначала ищем шаг с соблюдением optimalRange,
+      // при неудаче — любой допустимый шаг по пути.
+      for (let pass = 0; pass < 2; pass++) {
+        for (let i = path.length - 1; i >= 0; i--) {
+          const key = `${path[i].q},${path[i].r},${path[i].s}`;
+          if (!availableKeys.has(key)) continue;
+          if (pass === 0 && optimalRange > 0 && hexDistance(path[i], target) < optimalRange) continue;
+          return path[i];
+        }
       }
     }
 
     // findPath не нашёл маршрут (например, цель полностью отрезана) —
     // fallback на старое поведение: ближайший по прямой свободный гекс.
-    // Не идеально для обхода препятствий, но не оставляет юнит без хода.
     const sorted = [...available].sort(
       (a, b) => hexDistance(a, target) - hexDistance(b, target)
     );

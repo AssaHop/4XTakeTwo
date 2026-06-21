@@ -5,8 +5,8 @@
 расхождение.
 
 Последняя сверка с кодом: 2026-06-17 (сессия 2). Точечно обновлено
-сессией 3 (2026-06-18) и сессией 4 (2026-06-21, коммит `ae2b026`):
-добавлены capture points, исправлены баги weType/#24, обновлён Flee.
+сессиями 3-5 (2026-06-18/21): добавлены capture points, исправлены баги
+weType/#24/#25/#26, обновлён Flee, улучшен AI scoring.
 Остальной документ актуален на дату сессии 2.
 
 ## Структура каталогов
@@ -60,12 +60,15 @@ ui/events.js: handleEndTurn()
             └─ StrategyFSM(state, owner).update()  [фиксированно state='attack']
                  └─ AttackState.execute()
                       для каждого юнита owner: decideAction()
-                        → scoreTarget() (вес +50 player1, hpPercent-бонус,
-                          +40 если добивает, -3×dist, -30 если сам почти мёртв)
-                        → attack | move (bestStepWithLoS / bestStepToward) | idle
-                        → если idle: decideCaptureAction() — идёт к ближайшей
-                          незахваченной CP (скор: +60 ничейная, +40 вражеская,
-                          -1.5×dist) [сессия 4]
+                        → scoreTarget() (вес +50 player1, dangerBonus WCC+25/
+                          WDD+15/WBB+10, hpPercent-бонус, +40 если добивает,
+                          -1×dist [было -3, сессия 5], -30 если сам почти мёртв)
+                        → attack | move (bestStepWithLoS / bestStepToward с
+                          optimalRange=atRange-1 [сессия 5]) | CP-move | idle
+                        → decideCaptureAction() конкурирует с атакой в одной
+                          шкале (cpScore vs best.score) [сессия 5, ранее fallback]
+                          скор CP: +60 ничейная, +40 вражеская, +20 claimant,
+                          -1.0×dist. Если cpScore > enemy score → идёт к CP.
             └─ aiManager.js:executeAction() — исполняет, включая Charge→Flee/Percy
                  цепочку. Flee: findSafeHex() — если incoming damage < unit.hp →
                  идёт к ближайшей незахваченной CP; иначе бежит от врагов [сессия 4]
@@ -124,15 +127,16 @@ ui/events.js: handleEndTurn()
 Рендер: `drawCapturePoint()` в `render.js` — алмаз цветом `owner` (серый
 если `null`) + дуга прогресса `claimTurns/2` цветом `claimant`.
 
-AI: `decideCaptureAction()` в `attackState.js` — fallback когда `idle`;
+AI: `decideCaptureAction()` в `attackState.js` — конкурирует с атакой
+через `cpScore` в одной шкале [сессия 5, ранее был только fallback];
 `findSafeHex()` в `aiManager.js` — Flee идёт к CP если не умирает.
 
 **Что пока НЕ реализовано:**
 - Win condition через CP (игра по-прежнему без конца, #1 открыт)
-- CP не конкурируют с атакой в одной scoring-шкале (#23) — только fallback
 - `findPath` к land-гексу CP недостижим для морских юнитов → срабатывает
   жадный fallback в `bestStepToward` (работает, но не оптимально — юнит
   приближается по прямой, может застрять у берега)
+- Focus fire / deconfliction целей — несколько юнитов не координируют кого бить
 
 ## Сериализация (savegame)
 
