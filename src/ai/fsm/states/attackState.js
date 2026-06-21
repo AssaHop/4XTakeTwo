@@ -9,33 +9,38 @@ export class AttackState {
     this.owner     = owner; // 'enemy0', 'enemy1' итд
   }
  
-  execute() {
-    // Только юниты ЭТОГО AI которые ещё могут действовать
+  // executeCallback: async (action) => void — вызывается сразу после решения,
+  // ДО следующего юнита. Так каждый юнит видит актуальные HP целей
+  // (убитые первым юнитом исчезают из gameState.units, подбитые — видны
+  // с пониженным HP и дают бонус "можно добить").
+  async execute(executeCallback) {
     const allMyUnits = this.gameState.units.filter(u => u.owner === this.owner);
     const myUnits = allMyUnits.filter(u => u.canMove || u.canAct);
-    
+
     if (allMyUnits.length > 0 && myUnits.length === 0) {
       console.warn(`⚠️ [${this.owner}] Все юниты истощены: canMove/canAct = false`);
       allMyUnits.forEach(u => console.warn(`   ${u.type} canMove=${u.canMove} canAct=${u.canAct} pos=(${u.q},${u.r},${u.s})`));
     }
- 
-    // Цели: только player1 (приоритет) + по желанию другие AI
-    // Не атакуем других enemy — они не союзники но и не главный враг
-    const targets = this.gameState.units.filter(
-      u => u.owner === 'player1'
-    );
-    // Если игрок мёртв или нет его юнитов — атакуем всех остальных
-    const allTargets = targets.length > 0
-      ? targets
-      : this.gameState.units.filter(u => u.owner !== this.owner);
- 
+
     const actions = [];
- 
+
     for (const unit of myUnits) {
-      const action = this.decideAction(unit, allTargets);
+      // Юнит мог быть убит counter-attack'ом в предыдущей итерации
+      if (!this.gameState.units.includes(unit)) continue;
+
+      // Пересчитываем цели ПЕРЕД каждым юнитом — видим актуальный HP и состав
+      const livePlayer1 = this.gameState.units.filter(u => u.owner === 'player1');
+      const liveTargets = livePlayer1.length > 0
+        ? livePlayer1
+        : this.gameState.units.filter(u => u.owner !== this.owner);
+
+      const action = this.decideAction(unit, liveTargets);
       actions.push(action);
+
+      // Применяем сразу — следующий юнит видит изменения в gameState
+      if (executeCallback) await executeCallback(action);
     }
- 
+
     return actions;
   }
  

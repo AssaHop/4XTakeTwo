@@ -15,13 +15,17 @@ export async function runAIForTurn(gameState, owner) {
   }
 
   const fsm = fsmMap.get(owner);
-  const actions = fsm.update();
-  console.log(`🧠 [${owner}] actions:`, actions.map(a => `${a.type}:${a.unit?.type}`));
 
-  for (const action of actions) {
-    if (!action.unit) continue;
+  // Передаём executeAction как callback — каждый юнит решает и исполняет
+  // ДО того как следующий юнит делает свой decideAction.
+  // Это позволяет юниту B видеть актуальный HP цели после удара юнита A
+  // (фокус-файр на подбитого юнита возникает эмерджентно, без отдельного правила).
+  const actions = await fsm.update(async (action) => {
+    if (!action.unit) return;
     await executeAction(action, gameState, owner);
-  }
+  });
+
+  console.log(`🧠 [${owner}] actions:`, actions.map(a => `${a.type}:${a.unit?.type}`));
 }
 
 async function executeAction(action, gameState, owner) {

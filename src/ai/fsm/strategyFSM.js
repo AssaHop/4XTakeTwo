@@ -8,18 +8,18 @@ export class StrategyFSM {
     this.currentState = 'attack'; // стартовое состояние
   }
 
-  update() {
+  update(executeCallback) {
     // Здесь потом добавим переходы между состояниями
-    return this.executeCurrentState();
+    return this.executeCurrentState(executeCallback);
   }
 
-  executeCurrentState() {
+  executeCurrentState(executeCallback) {
     switch (this.currentState) {
       case 'attack':
-        return new AttackState(this.gameState, this.owner).execute();
+        return new AttackState(this.gameState, this.owner).execute(executeCallback);
       // defend, expand, economy — позже
       default:
-        return [];
+        return Promise.resolve([]);
     }
   }
 }
