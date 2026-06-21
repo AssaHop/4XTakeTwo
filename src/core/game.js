@@ -1,5 +1,5 @@
 import { renderMap, renderUnits } from '../ui/render.js';
-import { generateScenario, getInitialUnitsForScenario } from '../scenarios/scenarios.js';
+import { generateScenario, getInitialUnitsForScenario, getInitialCapturePointsForScenario } from '../scenarios/scenarios.js';
 import { generateUnits } from '../mechanics/units.js';
 import { setupUI } from '../ui/setup.js';
 import { setupEventListeners } from '../ui/events.js';
@@ -49,6 +49,7 @@ function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapType
 
   // ✅ Добавляем индекс для AI, pathfinding, LoS
   state.mapIndex = initMapIndex(map);
+  state.capturePoints = getInitialCapturePointsForScenario(scenarioName, state.mapIndex);
   state.initTurnOrder(enemyCount);
   resetAIState();
 

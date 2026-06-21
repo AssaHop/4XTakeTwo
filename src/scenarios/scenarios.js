@@ -39,6 +39,15 @@ export function getInitialUnitsForScenario(id = 'dominator', map = [], options =
 }
 
 /**
+ * Генерация стартовых точек захвата через сценарий
+ */
+export function getInitialCapturePointsForScenario(id = 'dominator', mapIndex = {}, options = {}) {
+  const scenario = getScenarioById(id);
+  if (typeof scenario.getInitialCapturePoints !== 'function') return [];
+  return scenario.getInitialCapturePoints(mapIndex, options.capturePointCount ?? 3);
+}
+
+/**
  * Получение UI-конфига (лимиты, название, описание и т.д.)
  */
 export function getScenarioConfig(id) {

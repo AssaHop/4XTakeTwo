@@ -7,6 +7,7 @@ import { renderMap, renderUnits } from './render.js';
 import { highlightUnitContext, clearAllHighlights } from './highlightManager.js';
 import { performAttack } from '../core/combatLogic.js';
 import { runAIForTurn } from '../ai/aiManager.js';
+import { updateCapturePoints } from '../core/captureLogic.js';
 
 const squashFactor = 0.7;
 
@@ -118,6 +119,7 @@ async function runAISequence() {
     // Пауза после хода — видно результат
     await sleep(AI_TURN_DELAY);
 
+    updateCapturePoints(state);
     state.nextTurn();
     console.log(`➡️ Следующий игрок: ${state.currentPlayer}`);
   }
@@ -139,6 +141,7 @@ async function handleEndTurn() {
   clearAllHighlights();
 
   // Переход к следующему игроку
+  updateCapturePoints(state);
   state.nextTurn();
   updateEndTurnButton();
 

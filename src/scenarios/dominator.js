@@ -1,5 +1,6 @@
 import { generateMapByProfile } from '../utils/generateMapByProfile.js';
 import { getTemplateSpawnCells, getRandomFreeHex } from '../utils/spawnUtils.js';
+import { hexDistance } from '../mechanics/hexUtils.js';
 
 export const dominator = {
   id: 'dominator',
@@ -43,6 +44,36 @@ export const dominator = {
     }
 
     return units;
+  },
+
+  getInitialCapturePoints: (mapIndex, count = 3) => {
+    const land = Object.values(mapIndex).filter(c => c.terrainType === 'land');
+    if (!land.length) return [];
+
+    // Fisher-Yates shuffle
+    for (let i = land.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [land[i], land[j]] = [land[j], land[i]];
+    }
+
+    // Pick points spread at least 5 hexes apart
+    const picks = [];
+    for (const h of land) {
+      if (picks.every(p => hexDistance(h, p) >= 5)) {
+        picks.push(h);
+        if (picks.length >= count) break;
+      }
+    }
+    // Fallback: fill remaining without spread constraint
+    for (const h of land) {
+      if (picks.length >= count) break;
+      if (!picks.some(p => p.q === h.q && p.r === h.r && p.s === h.s)) picks.push(h);
+    }
+
+    return picks.slice(0, count).map(h => ({
+      q: h.q, r: h.r, s: h.s,
+      owner: null, claimant: null, claimTurns: 0
+    }));
   },
 
   winCondition: (state) => {

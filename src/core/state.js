@@ -4,6 +4,7 @@ const state = {
   mapIndex: {},
   units: [],
   cities: [],
+  capturePoints: [],
   selectedUnit: null,
   highlightedHexes: [],
   attackHexes: [],

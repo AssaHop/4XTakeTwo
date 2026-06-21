@@ -1,5 +1,6 @@
 import { cubeToPixel, HEX_RADIUS } from '../world/map.js';
 import { state } from '../core/state.js';
+import { getOwnerColor } from '../mechanics/units.js';
 
 const squashFactor = 0.7;
 
@@ -42,6 +43,12 @@ function renderMap(newScale = state.scale ?? scale, offset = state.offset ?? { x
   (state.attackHexes || []).forEach(cell => {
     const { x, y } = cubeToPixel(cell.q, cell.r, cell.s, 0, 0, hexOffset.x, hexOffset.y);
     drawHexAttackOutline(ctx, x, y);
+  });
+
+  // Render capture points
+  (state.capturePoints || []).forEach(cp => {
+    const { x, y } = cubeToPixel(cp.q, cp.r, cp.s, 0, 0, hexOffset.x, hexOffset.y);
+    drawCapturePoint(ctx, x, y, cp);
   });
 
   ctx.restore();
@@ -163,6 +170,35 @@ function drawUnit(ctx, x, y, unit) {
   ctx.fillText(unit.type, x, y + 3);
 
   ctx.restore();
+}
+
+// Diamond flag: colored by owner, progress arc if being claimed
+function drawCapturePoint(ctx, x, y, cp) {
+  const r = HEX_RADIUS * 0.38;
+  const ownerCol  = cp.owner   ? getOwnerColor(cp.owner)   : '#888888';
+  const claimCol  = cp.claimant ? getOwnerColor(cp.claimant) : null;
+
+  // Diamond shape
+  ctx.beginPath();
+  ctx.moveTo(x,     y - r);
+  ctx.lineTo(x + r, y);
+  ctx.lineTo(x,     y + r);
+  ctx.lineTo(x - r, y);
+  ctx.closePath();
+  ctx.fillStyle   = ownerCol + 'aa';
+  ctx.strokeStyle = ownerCol;
+  ctx.lineWidth   = 2;
+  ctx.fill();
+  ctx.stroke();
+
+  // Claim progress arc (0 → full circle when claimTurns reaches 2)
+  if (claimCol && cp.claimTurns > 0) {
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.45, -Math.PI / 2, -Math.PI / 2 + (cp.claimTurns / 2) * 2 * Math.PI);
+    ctx.strokeStyle = claimCol;
+    ctx.lineWidth   = 3;
+    ctx.stroke();
+  }
 }
 
 function highlightHexes(hexes) {

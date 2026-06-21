@@ -28,10 +28,10 @@ class Unit {
     this.weType = options.weType || null;
     this.modules = options.modules || [];
 
-    const weaponProfile = WeaponTypes[this.weType];
-    if (weaponProfile) {
-      this.atRange = weaponProfile.range;
-      this.weaponProfile = weaponProfile;
+    const weaponKeys = Array.isArray(this.weType) ? this.weType : (this.weType ? [this.weType] : []);
+    const weaponProfiles = weaponKeys.map(k => WeaponTypes[k]).filter(Boolean);
+    if (weaponProfiles.length > 0) {
+      this.atRange = Math.max(...weaponProfiles.map(wp => wp.range));
     } else {
       this.atRange = options.atRange || 1;
     }
@@ -342,5 +342,6 @@ export {
   generateUnits,
   selectUnit,
   resetUnitsActions,
-  hasModule
+  hasModule,
+  getOwnerColor
 };

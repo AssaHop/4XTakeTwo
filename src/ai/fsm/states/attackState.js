@@ -71,9 +71,39 @@ export class AttackState {
       if (dest) return { type: 'move', unit, destination: dest, target };
     }
  
+    // Nothing to do against enemies — try capture points
+    const cpAction = this.decideCaptureAction(unit);
+    if (cpAction) return cpAction;
+
     return { type: 'idle', unit };
   }
- 
+
+  // Move toward an unclaimed or enemy-owned capture point when idle
+  decideCaptureAction(unit) {
+    if (!unit.canMove) return null;
+    const cps = (this.gameState.capturePoints || [])
+      .filter(cp => cp.owner !== this.owner);
+    if (!cps.length) return null;
+
+    const scored = cps.map(cp => {
+      let score = cp.owner ? 40 : 60;
+      if (cp.claimant === this.owner) score += 20;
+      score -= hexDistance(unit, cp) * 1.5;
+      return { cp, score };
+    }).sort((a, b) => b.score - a.score);
+
+    const best = scored[0];
+    if (!best || best.score < 0) return null;
+
+    // Already in contest range — stay put, capture logic handles the rest
+    if (hexDistance(unit, best.cp) <= 3) return null;
+
+    const dest = this.bestStepToward(unit, best.cp);
+    if (!dest) return null;
+
+    return { type: 'move', unit, destination: dest };
+  }
+
   scoreTarget(unit, target) {
     let score = 0;
  

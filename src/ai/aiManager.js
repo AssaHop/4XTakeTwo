@@ -113,20 +113,47 @@ function findBestTarget(unit, gameState) {
   return targets.sort((a, b) => a.hp - b.hp)[0]; // добиваем слабейшего
 }
 
-// Безопасный гекс для отхода (дальше от врагов)
+// Безопасный гекс для отхода.
+// Приоритет 1: если суммарный входящий урон >= hp → уходить от врагов.
+// Приоритет 2: иначе — двигаться к ближайшей незахваченной точке захвата.
+// Приоритет 3: fallback — максимально дальше от врагов.
 function findSafeHex(unit, gameState) {
   const available = unit.getAvailableHexes();
   if (!available.length) return null;
 
-  const enemies = gameState.units.filter(u => u.owner === 'player1');
-  if (!enemies.length) return available[0];
+  const enemies = gameState.units.filter(u => u.owner !== unit.owner);
+  const occupied = new Set(gameState.units.map(u => `${u.q},${u.r},${u.s}`));
+  const free = available.filter(h => !occupied.has(`${h.q},${h.r},${h.s}`));
 
-  // Выбираем гекс максимально далёкий от всех врагов
-  return available.sort((a, b) => {
+  const incomingThreat = enemies
+    .filter(e => hexDistance(e, unit) <= (e.atRange || 1))
+    .reduce((sum, e) => sum + (e.atDamage || 1), 0);
+
+  const willDie = incomingThreat >= unit.hp;
+
+  if (!willDie && free.length) {
+    // Safe enough — move toward nearest unowned/enemy CP
+    const contestable = (gameState.capturePoints || [])
+      .filter(cp => cp.owner !== unit.owner)
+      .sort((a, b) => hexDistance(a, unit) - hexDistance(b, unit));
+
+    if (contestable.length) {
+      const target = contestable[0];
+      const toward = free.slice().sort(
+        (a, b) => hexDistance(a, target) - hexDistance(b, target)
+      )[0];
+      if (toward) return toward;
+    }
+  }
+
+  if (!enemies.length) return free[0] || null;
+
+  // Safety mode: move as far as possible from all enemies
+  return free.sort((a, b) => {
     const distA = Math.min(...enemies.map(e => hexDistance(a, e)));
     const distB = Math.min(...enemies.map(e => hexDistance(b, e)));
     return distB - distA;
-  })[0];
+  })[0] || null;
 }
 
 export function resetAIState() {
