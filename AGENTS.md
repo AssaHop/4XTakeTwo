@@ -65,23 +65,36 @@ index.html → core/game.js (DOMContentLoaded)
   → ui/setup.js (меню, заполняется из scenarioConfigs + mapProfiles)
   → core/game.js:startGame() → initGame()
       → scenarios/scenarios.js → {dominator|conqueror}.generateMap()
-      → utils/generateMapByProfile.js → utils/islandBuilder.js (getTile, не mapIndex — нормально, вызывается до initMapIndex)
+      → utils/generateMapByProfile.js → utils/islandBuilder.js
       → utils/initMapIndex.js → state.mapIndex
-      → scenarios/dominator.js:getInitialCapturePoints() → state.capturePoints (с сессии 4)
+      → scenarios/dominator.js:getInitialCapturePoints() → state.capturePoints (сессия 4)
       → mechanics/units.js:generateUnits()
   → ui/events.js:setupEventListeners()
       → handleCanvasClick() → mechanics/units.js (selectUnit, moveTo) | core/combatLogic.js:performAttack()
-      → handleEndTurn() → core/captureLogic.js:updateCapturePoints() → state.nextTurn() → runAISequence()
-          → ai/aiManager.js:runAIForTurn()
+      → handleEndTurn()
+          → core/captureLogic.js:updateCapturePoints()
+          → core/aviationLogic.js:processAviationTurn(state, 'player1')  [сессия 6]
+          → state.nextTurn() → runAISequence()
+              (цикл while isAITurn():
+                resetUnitsForPlayer(currentAI)
+                → core/aviationLogic.js:processAviationTurn(state, currentAI)  [сессия 6]
+                → ai/aiManager.js:runAIForTurn(currentAI))
               → ai/fsm/strategyFSM.js (всегда state='attack')
-                  → ai/fsm/states/attackState.js (scoring, LoS, bestStepWithLoS/bestStepToward/decideCaptureAction)
-                      → bestStepToward() → mechanics/pathfinding.js:findPath() (с сессии 3 —
-                        полный маршрут A*, обходит препятствия; fallback на жадный шаг
-                        по прямой если путь не найден)
-                      → decideCaptureAction() — fallback к точкам захвата когда нет врагов (с сессии 4)
-              → executeAction() — Charge/Flee/Percy цепочка, вызывает core/combatLogic.js:performAttack()
-                  → findSafeHex() — Flee: если угроза < hp → к ближайшей CP, иначе от врагов (с сессии 4)
-          → core/captureLogic.js:updateCapturePoints() → state.nextTurn() (после каждого AI-хода)
+                  → ai/fsm/states/attackState.js
+                      execute(executeCallback) [Шаг A, сессия 5]: per-unit:
+                        1. пересчёт liveTargets (getAttackDamage≠null) [сессия 6]
+                        2. decideAction() → scoreTarget():
+                             +50 player1, +target.dangerScore [сессия 6],
+                             +(1-hpPercent)×30, +40 kill (getAttackDamage) [сессия 6],
+                             -1×dist, -30 если hp≤1,
+                             Шаг B -60 если контратака убивает [сессия 6]
+                        3. executeCallback(action) сразу [Шаг A]
+                      → bestStepToward() → mechanics/pathfinding.js:findPath() (сессия 3)
+                      → decideCaptureAction() конкурирует через cpScore (сессия 5)
+              → executeAction() — Charge/Flee/Percy цепочка
+                  → core/combatLogic.js:performAttack() → getAttackDamage() [сессия 6]
+                  → findSafeHex() — Flee (сессия 4)
+              → core/captureLogic.js:updateCapturePoints() → state.nextTurn()
   → ui/events.js:redraw() → ui/render.js (renderMap + renderUnits + drawCapturePoint)
 ```
 
@@ -146,6 +159,13 @@ index.html → core/game.js (DOMContentLoaded)
   `hexUtils.js` добавлены `hexRoundDual`/`getHexLineDual`; шаг на стыке
   блокирует LoS только если ОБА кандидата — блокирующий террейн.
   `lineOfSight.js` использует `getHexLineDual`. См. `#24` (закрыт).
+- **`dangerScore`/`atDamage` авиации** — **ИСПРАВЛЕНО сессией 6.**
+  `dangerScore` добавлен всем юнитам в `classTemplates.js`; `atDamage`
+  добавлен ADB/ATB/AAF; WDD получил `Torp` в weType. `scoreTarget`
+  заменил хардкод на `target.dangerScore`. См. `#27` (закрыт).
+- Авиация (AAF/ADB/ATB) не двигается — нет `modules: ['Air']` в шаблонах,
+  `getAvailableHexes()` возвращает []. Дальнобойное оружие позволяет
+  атаковать без перемещения. Открыто.
 - Новые классы кораблей (WSB, WCA, WLC, WSS, AAF, ADB, ATB) рисуются
   одинаковым кругом в `drawUnit()` — визуально неотличимы друг от друга.
   См. `#18` (открыт).

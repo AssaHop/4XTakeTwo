@@ -38,6 +38,7 @@
 | Stealth | ❌ | `unit.invisible` нигде не читается |
 | Still | ⚠️ | `unitFlags.js` ставит `disableOwnRetaliation`, но и это никем не читается дальше — фактически ❌ |
 | Ambush | ⚠️ | `unitFlags.js` ставит `preventEnemyRetaliation`, никем не читается дальше — фактически ❌ |
+| noCounter | ❌ | Флаг `unit.noCounter = true` ставится на AAF/ADB/ATB в `classTemplates.js` [сессия 6]. Counter-attack в `combatLogic.js` не реализован — флаг нигде не читается. |
 | Stomp | ❌ | `unit.stompOnMove` нигде не читается |
 | Field | ❌ | `unit.fieldDamageAura` нигде не читается |
 | Invade | ❌ | `unit.invadeCity` нигде не читается |

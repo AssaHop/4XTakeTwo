@@ -4,9 +4,10 @@
 коду — прав код, документ нужно поправить в той же сессии, где найдено
 расхождение.
 
-Последняя сверка с кодом: 2026-06-17 (сессия 2). Точечно обновлено
-сессиями 3-5 (2026-06-18/21): добавлены capture points, исправлены баги
-weType/#24/#25/#26, обновлён Flee, улучшен AI scoring.
+Последняя сверка с кодом: 2026-06-17 (сессия 2). Обновлено сессиями 3-6
+(2026-06-18/21): добавлены capture points, исправлены баги weType/#24/
+#25/#26/#27, обновлён Flee, улучшен AI scoring, добавлена система
+damageVs/targetClass, авиационная механика, флит 5v5 в dominator.
 Остальной документ актуален на дату сессии 2.
 
 ## Структура каталогов
@@ -15,6 +16,7 @@ weType/#24/#25/#26, обновлён Flee, улучшен AI scoring.
 src/
 ├── core/           — состояние игры, боевая логика, модули юнитов, FSM игры
 │   ├── captureLogic.js  — updateCapturePoints(), вызывается из events.js (сессия 4)
+│   ├── aviationLogic.js — processAviationTurn() + resetAviationState() (сессия 6)
 │   └── modules/    — реестр модулей (combat/navigation/progression/support)
 ├── ai/             — AI-игроки
 │   ├── aiManager.js, fsm/strategyFSM.js, fsm/states/attackState.js  — ЖИВОЙ путь
@@ -53,25 +55,39 @@ ui/events.js: handleCanvasClick()
   └─ клик по гексу движения → unit.moveTo()
 
 ui/events.js: handleEndTurn()
-  └─ captureLogic.js:updateCapturePoints(state)  [сессия 4 — перед nextTurn]
+  └─ captureLogic.js:updateCapturePoints(state)  [сессия 4]
+  └─ aviationLogic.js:processAviationTurn(state, 'player1')  [сессия 6]
+       — тикает lifeTurns у авиаюнитов player1, WCA спаунит новый
   └─ state.nextTurn() → если isAITurn() → runAISequence()
-       (цикл while isAITurn(): resetUnitsForPlayer → runAIForTurn → updateCapturePoints → nextTurn)
+       (цикл while isAITurn():
+         resetUnitsForPlayer(currentAI)
+         → aviationLogic.js:processAviationTurn(state, currentAI)  [сессия 6]
+         → runAIForTurn(currentAI)
+         → updateCapturePoints → nextTurn)
        └─ ai/aiManager.js:runAIForTurn(state, owner)
             └─ StrategyFSM(state, owner).update()  [фиксированно state='attack']
-                 └─ AttackState.execute()
-                      для каждого юнита owner: decideAction()
-                        → scoreTarget() (вес +50 player1, dangerBonus WCC+25/
-                          WDD+15/WBB+10, hpPercent-бонус, +40 если добивает,
-                          -1×dist [было -3, сессия 5], -30 если сам почти мёртв)
-                        → attack | move (bestStepWithLoS / bestStepToward с
-                          optimalRange=atRange-1 [сессия 5]) | CP-move | idle
-                        → decideCaptureAction() конкурирует с атакой в одной
-                          шкале (cpScore vs best.score) [сессия 5, ранее fallback]
-                          скор CP: +60 ничейная, +40 вражеская, +20 claimant,
-                          -1.0×dist. Если cpScore > enemy score → идёт к CP.
-            └─ aiManager.js:executeAction() — исполняет, включая Charge→Flee/Percy
-                 цепочку. Flee: findSafeHex() — если incoming damage < unit.hp →
-                 идёт к ближайшей незахваченной CP; иначе бежит от врагов [сессия 4]
+                 └─ AttackState.execute(executeCallback)  [сессия 5: async]
+                      [Шаг A, сессия 5]: per-unit цикл:
+                        1. пересчёт liveTargets из gameState.units —
+                           только цели которые getAttackDamage(unit,t) ≠ null [сессия 6]
+                        2. decideAction(unit, liveTargets)
+                             → scoreTarget():
+                                 +50 player1, +target.dangerScore [сессия 6, ранее
+                                   хардкод WCC+25/WDD+15/WBB+10],
+                                 +(1-hpPercent)×30,
+                                 +40 если getAttackDamage(unit,target) ≥ target.hp [сессия 6],
+                                 -1×dist, -30 если unit.hp≤1,
+                                 Шаг B [сессия 6]: -60 если цель убивает нас
+                                   ответным ударом и мы в её зоне атаки
+                             → attack | move (bestStepWithLoS / bestStepToward с
+                               optimalRange=atRange-1 [сессия 5]) | CP-move | idle
+                             → decideCaptureAction() конкурирует с атакой
+                               через cpScore [сессия 5]
+                        3. await executeCallback(action) — применяем СРАЗУ,
+                           до решения следующего юнита [Шаг A]
+            └─ aiManager.js:executeAction() — Charge→Flee/Percy цепочка
+                 combatLogic.js:performAttack() использует getAttackDamage() [сессия 6]
+                 Flee: findSafeHex() [сессия 4]
   └─ redraw() [ui/events.js] → renderMap() + renderUnits() + drawCapturePoint() [ui/render.js]
        (примечание: renderMap() сама тоже зовёт renderUnits() внутри —
         двойная отрисовка юнитов на каждый redraw, не критично)
@@ -107,7 +123,7 @@ ui/events.js: handleEndTurn()
 
 | Сценарий | Статус | Причина |
 |---|---|---|
-| `dominator` | Рабочий (с поправкой на отсутствие вызова winCondition выше) | Спаун чередованием WBB/WDD/WCC, простая победа "убей всех" |
+| `dominator` | Рабочий (с поправкой на отсутствие вызова winCondition выше) | Симметричный флит FLEET=[WDD×2, WCC×2, WBB] для каждого игрока [сессия 6, ранее 2 player1 vs 1 случайный AI] |
 | `conqueror` | Сломан полностью | `reef`/`zone` террейны генерируются, но не рендерятся (`getTerrainColor` не знает их), не участвуют в движении/спауне. `turnCount` и `controlledBy`, на которых строится win/lose, нигде не инкрементируются/устанавливаются |
 
 ## Capture points (добавлено сессией 4)
@@ -137,6 +153,47 @@ AI: `decideCaptureAction()` в `attackState.js` — конкурирует с а
   жадный fallback в `bestStepToward` (работает, но не оптимально — юнит
   приближается по прямой, может застрять у берега)
 - Focus fire / deconfliction целей — несколько юнитов не координируют кого бить
+
+## Система damageVs / targetClass (добавлено сессией 6)
+
+Каждый юнит имеет `targetClass: 'surface' | 'air' | 'sub'` (из
+`classTemplates.js`). Каждое оружие в `weaponTypes.js` имеет
+`damageVs: { surface: M, air: M, sub: M }` — множители урона.
+
+Реальный урон: `Math.round(unit.atDamage * damageVs[target.targetClass])`.
+Лучший из всех `weType` юнита — `getAttackDamage(attacker, target)`
+в `combatLogic.js`. Отсутствие ключа в `damageVs` = оружие не может
+выбрать этот класс (не 0, а невозможность атаки).
+
+Текущая матрица:
+
+| Оружие | surface | air | sub |
+|--------|---------|-----|-----|
+| Main   | ×1.0    | —   | —   |
+| Torp   | ×1.0    | —   | ×1.0 |
+| Small  | ×1.0    | ×0.5 | —  |
+
+Используется в: `combatLogic.js:performAttack()` (фактический урон),
+`attackState.js:execute()` (фильтр liveTargets), `attackState.js:scoreTarget()`
+(kill-check и Шаг B), `units.js:getAttackableHexes()` (подсветка целей UI).
+
+## Авиация (добавлено сессией 6)
+
+`src/core/aviationLogic.js`:
+- `processAviationTurn(state, owner)`: (1) декрементирует `lifeTurns`
+  у авиаюнитов owner, удаляет выработавших; (2) если жив WCA и
+  `aviationCount < MAX_AVIATION(4)` — спаунит следующий тип из цикла
+  `ATB→ADB→AAF→ATB→...` на свободный соседний гекс WCA.
+- `resetAviationState()`: сбрасывает `spawnCycle` Map (вызывается из
+  `aiManager.js:resetAIState()`).
+
+Флаг `noCounter: true` на AAF/ADB/ATB зарезервирован — counter-attack в
+`combatLogic.js` не реализован, флаг не читается.
+
+**Известный баг**: AAF/ADB/ATB не имеют `modules: ['Air']` в шаблонах →
+`moveTerrain` остаётся пустым → `getAvailableHexes()` возвращает [] →
+авиация не может двигаться. Дальнобойное оружие (range 6-7) позволяет
+атаковать без перемещения, но repositioning невозможен.
 
 ## Сериализация (savegame)
 
