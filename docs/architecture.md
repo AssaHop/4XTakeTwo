@@ -4,22 +4,22 @@
 коду — прав код, документ нужно поправить в той же сессии, где найдено
 расхождение.
 
-Последняя сверка с кодом: 2026-06-17 (сессия 2), HEAD на тот момент
-`c34f0dfe4638512f8175436cfd0f49ea4f0fca60`. Точечно обновлено сессией 3
-(2026-06-18): `bestStepToward` теперь использует `findPath`, см. раздел
-"TODO крупный" ниже и `docs/known-issues.md` #2/#22/#23 — остальной
-документ не пересверен заново, актуален на дату сессии 2.
+Последняя сверка с кодом: 2026-06-17 (сессия 2). Точечно обновлено
+сессией 3 (2026-06-18) и сессией 4 (2026-06-21, коммит `ae2b026`):
+добавлены capture points, исправлены баги weType/#24, обновлён Flee.
+Остальной документ актуален на дату сессии 2.
 
 ## Структура каталогов
 
 ```
 src/
 ├── core/           — состояние игры, боевая логика, модули юнитов, FSM игры
+│   ├── captureLogic.js  — updateCapturePoints(), вызывается из events.js (сессия 4)
 │   └── modules/    — реестр модулей (combat/navigation/progression/support)
 ├── ai/             — AI-игроки
 │   ├── aiManager.js, fsm/strategyFSM.js, fsm/states/attackState.js  — ЖИВОЙ путь
 │   ├── actions/, evaluators/, fsm/states/{defend,economy,expand,idle}, fsm/stateMachine.js, fsm/transitions.js — МЁРТВЫЙ путь
-├── mechanics/      — юниты, LoS, pathfinding (A*, не используется), hex-математика
+├── mechanics/      — юниты, LoS, pathfinding (A*), hex-математика
 ├── scenarios/      — dominator (рабочий), conqueror (сломан, см. known-issues)
 ├── ui/             — рендер, события, меню; ui/input.js пустой (touch не реализован)
 ├── utils/          — генерация карты, спаун, индекс карты
@@ -53,8 +53,9 @@ ui/events.js: handleCanvasClick()
   └─ клик по гексу движения → unit.moveTo()
 
 ui/events.js: handleEndTurn()
+  └─ captureLogic.js:updateCapturePoints(state)  [сессия 4 — перед nextTurn]
   └─ state.nextTurn() → если isAITurn() → runAISequence()
-       (цикл while isAITurn(): resetUnitsForPlayer → runAIForTurn → nextTurn)
+       (цикл while isAITurn(): resetUnitsForPlayer → runAIForTurn → updateCapturePoints → nextTurn)
        └─ ai/aiManager.js:runAIForTurn(state, owner)
             └─ StrategyFSM(state, owner).update()  [фиксированно state='attack']
                  └─ AttackState.execute()
@@ -62,10 +63,13 @@ ui/events.js: handleEndTurn()
                         → scoreTarget() (вес +50 player1, hpPercent-бонус,
                           +40 если добивает, -3×dist, -30 если сам почти мёртв)
                         → attack | move (bestStepWithLoS / bestStepToward) | idle
+                        → если idle: decideCaptureAction() — идёт к ближайшей
+                          незахваченной CP (скор: +60 ничейная, +40 вражеская,
+                          -1.5×dist) [сессия 4]
             └─ aiManager.js:executeAction() — исполняет, включая Charge→Flee/Percy
-                 цепочку (дублирует часть логики из combatLogic/gameStateMachine,
-                 см. AGENTS.md раздел "технический долг")
-  └─ redraw() [ui/events.js] → renderMap() + renderUnits() [ui/render.js]
+                 цепочку. Flee: findSafeHex() — если incoming damage < unit.hp →
+                 идёт к ближайшей незахваченной CP; иначе бежит от врагов [сессия 4]
+  └─ redraw() [ui/events.js] → renderMap() + renderUnits() + drawCapturePoint() [ui/render.js]
        (примечание: renderMap() сама тоже зовёт renderUnits() внутри —
         двойная отрисовка юнитов на каждый redraw, не критично)
 ```
@@ -102,6 +106,33 @@ ui/events.js: handleEndTurn()
 |---|---|---|
 | `dominator` | Рабочий (с поправкой на отсутствие вызова winCondition выше) | Спаун чередованием WBB/WDD/WCC, простая победа "убей всех" |
 | `conqueror` | Сломан полностью | `reef`/`zone` террейны генерируются, но не рендерятся (`getTerrainColor` не знает их), не участвуют в движении/спауне. `turnCount` и `controlledBy`, на которых строится win/lose, нигде не инкрементируются/устанавливаются |
+
+## Capture points (добавлено сессией 4)
+
+`state.capturePoints[]` — массив `{q, r, s, owner, claimant, claimTurns}`.
+
+Генерация: `dominator.getInitialCapturePoints(mapIndex, count=3)` выбирает
+случайные land-гексы с расстоянием ≥5 друг от друга. Вызывается из
+`game.js:initGame()` после `initMapIndex`.
+
+Захват: `captureLogic.js:updateCapturePoints(state)` вызывается перед
+каждым `state.nextTurn()` (и в `handleEndTurn`, и в `runAISequence`).
+Логика: найти юнитов в `hexDistance ≤ 3`; если 1 владелец без оппонента →
+`claimTurns++`; при `claimTurns ≥ 2` → `owner = claimant`. Любое отсутствие
+или оспаривание → `claimTurns = 0`.
+
+Рендер: `drawCapturePoint()` в `render.js` — алмаз цветом `owner` (серый
+если `null`) + дуга прогресса `claimTurns/2` цветом `claimant`.
+
+AI: `decideCaptureAction()` в `attackState.js` — fallback когда `idle`;
+`findSafeHex()` в `aiManager.js` — Flee идёт к CP если не умирает.
+
+**Что пока НЕ реализовано:**
+- Win condition через CP (игра по-прежнему без конца, #1 открыт)
+- CP не конкурируют с атакой в одной scoring-шкале (#23) — только fallback
+- `findPath` к land-гексу CP недостижим для морских юнитов → срабатывает
+  жадный fallback в `bestStepToward` (работает, но не оптимально — юнит
+  приближается по прямой, может застрять у берега)
 
 ## Сериализация (savegame)
 
@@ -154,9 +185,9 @@ tactical/execution, как описано в одной из дизайн-зам
 самого понятия "цель" (сейчас это просто `Unit`).
 
 **Проблема 2 — Flee должен быть целенаправленным, не случайным отходом.**
-Сейчас (см. `aiManager.js`/`gameStateMachine.js`) Flee просто берёт
-"что-то" из `getAvailableHexes()` после атаки — направление не
-осмысленное. Пользователь предложил конкретную иерархию того, что
+**Частично решено сессией 4:** `findSafeHex` теперь считает входящий
+урон; если не смертелен — идёт к ближайшей незахваченной CP вместо
+случайного отхода. Нерешённое ниже. Пользователь предложил конкретную иерархию того, что
 Flee МОГ бы делать вместо простого отхода, в порядке возрастания
 сложности реализации:
   1. Отойти к ближайшему своему юниту/группе — для защиты (взаимная

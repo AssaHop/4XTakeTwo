@@ -67,18 +67,22 @@ index.html → core/game.js (DOMContentLoaded)
       → scenarios/scenarios.js → {dominator|conqueror}.generateMap()
       → utils/generateMapByProfile.js → utils/islandBuilder.js (getTile, не mapIndex — нормально, вызывается до initMapIndex)
       → utils/initMapIndex.js → state.mapIndex
+      → scenarios/dominator.js:getInitialCapturePoints() → state.capturePoints (с сессии 4)
       → mechanics/units.js:generateUnits()
   → ui/events.js:setupEventListeners()
       → handleCanvasClick() → mechanics/units.js (selectUnit, moveTo) | core/combatLogic.js:performAttack()
-      → handleEndTurn() → state.nextTurn() → runAISequence()
+      → handleEndTurn() → core/captureLogic.js:updateCapturePoints() → state.nextTurn() → runAISequence()
           → ai/aiManager.js:runAIForTurn()
               → ai/fsm/strategyFSM.js (всегда state='attack')
-                  → ai/fsm/states/attackState.js (scoring, LoS, bestStepWithLoS/bestStepToward)
+                  → ai/fsm/states/attackState.js (scoring, LoS, bestStepWithLoS/bestStepToward/decideCaptureAction)
                       → bestStepToward() → mechanics/pathfinding.js:findPath() (с сессии 3 —
                         полный маршрут A*, обходит препятствия; fallback на жадный шаг
                         по прямой если путь не найден)
+                      → decideCaptureAction() — fallback к точкам захвата когда нет врагов (с сессии 4)
               → executeAction() — Charge/Flee/Percy цепочка, вызывает core/combatLogic.js:performAttack()
-  → ui/events.js:redraw() → ui/render.js (renderMap + renderUnits)
+                  → findSafeHex() — Flee: если угроза < hp → к ближайшей CP, иначе от врагов (с сессии 4)
+          → core/captureLogic.js:updateCapturePoints() → state.nextTurn() (после каждого AI-хода)
+  → ui/events.js:redraw() → ui/render.js (renderMap + renderUnits + drawCapturePoint)
 ```
 
 ### Мёртвый код — НЕ ИМПОРТИРУЕТСЯ из живого пути (проверено grep на 2026-06-17)
@@ -133,21 +137,18 @@ index.html → core/game.js (DOMContentLoaded)
   на цель — заметно зашумляет консоль по сравнению с прежним редким
   использованием. Отложено почистить по прямому запросу пользователя.
 
-### Реальный баг, не технический долг (найден сессией 3, не исправлен)
+### Реальные баги
 
-- **`weType`-массив ломает lookup в `WeaponTypes`.** `units.js`
-  конструктор делает `WeaponTypes[this.weType]`, где `this.weType` —
-  массив (например `['Small','Main']` у WCC). `Array.toString()` даёт
-  `"Small,Main"` — такого ключа нет среди `Main`/`Torp`/`Small` в
-  `weaponTypes.js`, значит `weaponProfile=undefined` →
-  `this.atRange = options.atRange || 1`. Юниты с ОДНИМ элементом в
-  `weType` (WBB `['Main']`, WDD `['Small']`) не страдают — случайное
-  совпадение `['Main'].toString() === 'Main'`. Эффект в игре: WCC может
-  атаковать только в упор (`atRange=1` вместо нормального диапазона).
-  Подтверждено по факту наблюдения в реальной партии (лог
-  пользователя) + проверено кодом. См. `docs/known-issues.md` #21.
+- **`weType`-массив** — **ИСПРАВЛЕНО сессией 4.** `units.js` конструктор
+  теперь итерирует по всем ключам `weType`, берёт `Math.max` из range.
+  WCC получает `atRange=6`. См. `docs/known-issues.md` #21 (закрыт).
+- **LoS на границе двух гексов** — **ИСПРАВЛЕНО сессией 4.**
+  `hexUtils.js` добавлены `hexRoundDual`/`getHexLineDual`; шаг на стыке
+  блокирует LoS только если ОБА кандидата — блокирующий террейн.
+  `lineOfSight.js` использует `getHexLineDual`. См. `#24` (закрыт).
 - Новые классы кораблей (WSB, WCA, WLC, WSS, AAF, ADB, ATB) рисуются
   одинаковым кругом в `drawUnit()` — визуально неотличимы друг от друга.
+  См. `#18` (открыт).
 
 ## 3. Контент опережает реализацию — статус системы модулей
 
