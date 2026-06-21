@@ -3,6 +3,7 @@ import { StrategyFSM } from './fsm/strategyFSM.js';
 import { performAttack } from '../core/combatLogic.js';
 import { hexDistance } from '../mechanics/hexUtils.js';
 import { hasLineOfSight } from '../mechanics/lineOfSight.js';
+import { resetAviationState } from '../core/aviationLogic.js';
 
 const fsmMap = new Map();
 
@@ -162,4 +163,5 @@ function findSafeHex(unit, gameState) {
 
 export function resetAIState() {
   fsmMap.clear();
+  resetAviationState();
 }

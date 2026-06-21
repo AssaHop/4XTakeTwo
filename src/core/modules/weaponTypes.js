@@ -7,7 +7,9 @@ export const WeaponTypes = {
     canTargetSubmerged: false,
     aoeRadius: 0,
     tags: ['shell', 'anti-ship'],
-    blockLOS: ['peak', 'mount'] // 👈 Добавлено!
+    blockLOS: ['peak', 'mount'],
+    // Только по кораблям. Отсутствие 'air'/'sub' = не может выбрать такую цель.
+    damageVs: { surface: 1.0 }
   },
 
   Torp: {
@@ -18,7 +20,9 @@ export const WeaponTypes = {
     canTargetSubmerged: true,
     aoeRadius: 0,
     tags: ['underwater', 'anti-sub'],
-    blockLOS: ['surf', 'land', 'hill', 'mount', 'peak'] // если надо
+    blockLOS: ['surf', 'land', 'hill', 'mount', 'peak'],
+    // Корабли и подлодки, не самолёты.
+    damageVs: { surface: 1.0, sub: 1.0 }
   },
 
   Small: {
@@ -29,6 +33,8 @@ export const WeaponTypes = {
     canTargetSubmerged: false,
     aoeRadius: 0,
     tags: 'sec',
-    blockLOS: ['hill', 'mount', 'peak'] // 👈 Тоже может блокироваться
+    blockLOS: ['hill', 'mount', 'peak'],
+    // Корабли полный урон, частичное ПВО (WDD/WCC), не подлодки.
+    damageVs: { surface: 1.0, air: 0.5 }
   }
 };

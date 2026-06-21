@@ -8,6 +8,7 @@ import { highlightUnitContext, clearAllHighlights } from './highlightManager.js'
 import { performAttack } from '../core/combatLogic.js';
 import { runAIForTurn } from '../ai/aiManager.js';
 import { updateCapturePoints } from '../core/captureLogic.js';
+import { processAviationTurn } from '../core/aviationLogic.js';
 
 const squashFactor = 0.7;
 
@@ -110,6 +111,9 @@ async function runAISequence() {
     // Сбрасываем действия юнитов ЭТОГО AI перед его ходом
     state.resetUnitsForPlayer(currentAI);
 
+    // Авиация: тикаем lifeTurns, WCA спаунит новый юнит (новый видит действия в этом ходу)
+    processAviationTurn(state, currentAI);
+
     // Пауза перед ходом — видно кто ходит
     await sleep(AI_TURN_DELAY);
 
@@ -142,6 +146,7 @@ async function handleEndTurn() {
 
   // Переход к следующему игроку
   updateCapturePoints(state);
+  processAviationTurn(state, 'player1');
   state.nextTurn();
   updateEndTurnButton();
 

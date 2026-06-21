@@ -36,6 +36,11 @@ class Unit {
       this.atRange = options.atRange || 1;
     }
 
+    this.dangerScore  = options.dangerScore  ?? 0;
+    this.lifeTurns    = options.lifeTurns    ?? null;
+    this.noCounter    = options.noCounter    ?? false;
+    this.targetClass  = options.targetClass  ?? 'surface';
+
     this.canMove = true;
     this.canAct = true;
     this.moveBonusUsed = false;
@@ -227,6 +232,9 @@ class Unit {
 
           const target = state.units.find(u => u.q === q && u.r === r && u.s === s && u.owner !== unit.owner);
           if (!target) continue;
+
+          // Оружие должно иметь damageVs для класса цели (нет ключа = нельзя атаковать)
+          if (config.damageVs && !(( target.targetClass || 'surface') in config.damageVs)) continue;
 
           if (hasLineOfSight(unit, target, state.mapIndex, weapType)) {
             targets.add(`${q},${r},${s}`);

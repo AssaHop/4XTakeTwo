@@ -13,35 +13,18 @@ export const dominator = {
 
   getInitialUnits: (map, { enemyCount = 3 }) => {
     const units = [];
+    const FLEET = ['WDD', 'WDD', 'WCC', 'WCC', 'WBB'];
 
-    const playerSpawns = getTemplateSpawnCells('WDD', map);
-    // Враги могут спавниться на любом водном тайле
-    const enemySpawns = getTemplateSpawnCells('WBB', map);
-
-    const p1_1 = getRandomFreeHex(playerSpawns, units);
-    const p1_2 = getRandomFreeHex(playerSpawns, units.concat([p1_1]));
-
-    if (p1_1) units.push({ ...p1_1, type: 'WDD', owner: 'player1' });
-    if (p1_2) units.push({ ...p1_2, type: 'WCC', owner: 'player1' });
-
-    // Чередуем типы врагов для тестирования разных модулей
-    // WBB - базовый, WDD - Charge+Flee, WCC - Charge+Percy
-    const enemyTypes = ['WBB', 'WDD', 'WCC', 'WBB', 'WDD', 'WCC', 'WBB', 'WBB'];
-
-    for (let i = 0; i < enemyCount; i++) {
-      const type = enemyTypes[i % enemyTypes.length];
-      const spawnCells = getTemplateSpawnCells(type, map);
-      const hex = getRandomFreeHex(spawnCells, units);
-      if (hex) {
-        units.push({
-          q: hex.q,
-          r: hex.r,
-          s: hex.s,
-          type,
-          owner: `enemy${i}`
-        });
+    const spawnFleet = (owner) => {
+      for (const type of FLEET) {
+        const cells = getTemplateSpawnCells(type, map);
+        const hex = getRandomFreeHex(cells, units);
+        if (hex) units.push({ q: hex.q, r: hex.r, s: hex.s, type, owner });
       }
-    }
+    };
+
+    spawnFleet('player1');
+    for (let i = 0; i < enemyCount; i++) spawnFleet(`enemy${i}`);
 
     return units;
   },

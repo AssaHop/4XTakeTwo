@@ -12,16 +12,42 @@ function getWeaponRange(unit) {
   return Math.max(...ranges, unit.atRange || 1);
 }
 
+// Возвращает реальный урон attacker по target с учётом damageVs/targetClass,
+// либо null если ни одно оружие не может поразить класс цели.
+export function getAttackDamage(attacker, target) {
+  const weapons = Array.isArray(attacker.weType)
+    ? attacker.weType
+    : (attacker.weType ? [attacker.weType] : []);
+  const tClass = target.targetClass || 'surface';
+
+  let best = null;
+  for (const w of weapons) {
+    const profile = WeaponTypes[w];
+    if (!profile?.damageVs) continue;
+    if (!(tClass in profile.damageVs)) continue;
+    const dmg = Math.round(attacker.atDamage * profile.damageVs[tClass]);
+    if (best === null || dmg > best) best = dmg;
+  }
+  return best;
+}
+
 function performAttack(attacker, target) {
   if (!attacker?.canAct) {
     console.warn(`[ATTACK BLOCKED] ${attacker?.type} can't act`);
     return;
   }
 
-  target.hp = Math.max(0, target.hp - (attacker.atDamage || 1));
+  const damage = getAttackDamage(attacker, target);
+  if (damage === null) {
+    console.warn(`[ATTACK BLOCKED] ${attacker.type} нет оружия против ${target.targetClass} (${target.type})`);
+    attacker.canAct = false;
+    return;
+  }
+
+  target.hp = Math.max(0, target.hp - damage);
   attacker.canAct = false;
 
-  console.log(`⚔️ ${attacker.type} атакует ${target.type} → ${target.hp}/${target.maxHp}`);
+  console.log(`⚔️ ${attacker.type} → ${target.type}[${target.targetClass}] ${damage}dmg → ${target.hp}/${target.maxHp}`);
 
   let killed = false;
 

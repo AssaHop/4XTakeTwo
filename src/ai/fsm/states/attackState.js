@@ -2,6 +2,7 @@
 import { hexDistance } from '../../../mechanics/hexUtils.js';
 import { hasLineOfSight } from '../../../mechanics/lineOfSight.js';
 import { findPath } from '../../../mechanics/pathfinding.js';
+import { getAttackDamage } from '../../../core/combatLogic.js';
  
 export class AttackState {
   constructor(gameState, owner) {
@@ -30,9 +31,11 @@ export class AttackState {
 
       // Пересчитываем цели ПЕРЕД каждым юнитом — видим актуальный HP и состав
       const livePlayer1 = this.gameState.units.filter(u => u.owner === 'player1');
-      const liveTargets = livePlayer1.length > 0
+      const allTargets = livePlayer1.length > 0
         ? livePlayer1
         : this.gameState.units.filter(u => u.owner !== this.owner);
+      // Оставляем только цели, которые этот юнит вообще может поразить (damageVs)
+      const liveTargets = allTargets.filter(t => getAttackDamage(unit, t) !== null);
 
       const action = this.decideAction(unit, liveTargets);
       actions.push(action);
@@ -121,16 +124,17 @@ export class AttackState {
     // Приоритет: атаковать player1 сильнее чем других AI
     if (target.owner === 'player1') score += 50;
 
-    // Опасные юниты имеют приоритет (Percy/Charge цепочки особенно опасны)
-    const dangerBonus = { WCC: 25, WDD: 15, WBB: 10 };
-    score += dangerBonus[target.type] || 0;
+    // Опасность юнита по роли (из classTemplates.dangerScore)
+    // WCA > WSB/WSS/авиация > WCC/WDD > WBB/WLC
+    score += target.dangerScore || 0;
 
     // Добить раненого выгодно
     const hpPercent = target.hp / (target.maxHp || target.hp);
     score += (1 - hpPercent) * 30;
 
-    // Можем убить этим ударом — очень ценно
-    if (target.hp <= (unit.atDamage || 1)) score += 40;
+    // Можем убить этим ударом — очень ценно (с учётом реального урона по классу цели)
+    const actualDmg = getAttackDamage(unit, target) ?? 0;
+    if (target.hp <= actualDmg) score += 40;
 
     // Штраф за дистанцию — уменьшен с 3 до 1 чтобы дальние юниты не idle
     const dist = hexDistance(unit, target);
@@ -138,6 +142,13 @@ export class AttackState {
 
     // Не атаковать если сами почти мертвы
     if (unit.hp <= 1) score -= 30;
+
+    // Шаг B: штраф за опасный размен (SimpleAgent.evalAttack)
+    // Если мы в зоне атаки цели И цель убьёт нас ответным ударом — избегать
+    const counterDmg = getAttackDamage(target, unit) ?? 0;
+    if (dist <= (target.atRange || 1) && counterDmg >= unit.hp) {
+      score -= 60;
+    }
 
     return score;
   }
