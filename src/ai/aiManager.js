@@ -108,10 +108,13 @@ function executeAttack(unit, target, gameState, owner) {
   return target.hp <= 0 || !gameState.units.includes(target);
 }
 
-// Лучшая цель для Percy (из оставшихся живых врагов в зоне атаки)
+// Лучшая цель для Percy (из оставшихся живых врагов в зоне атаки).
+// Любой чужой owner, не только player1 — согласовано с targeting в
+// attackState.js (allegiance решает КОГО атаковать первым, но Percy просто
+// добивает слабейшего среди уже достижимых целей).
 function findBestTarget(unit, gameState) {
   const targets = gameState.units.filter(u =>
-    u.owner === 'player1' &&
+    u.owner !== unit.owner &&
     hexDistance(unit, u) <= unit.atRange
   );
   if (!targets.length) return null;

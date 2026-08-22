@@ -1,6 +1,7 @@
 import { generateMapByProfile } from '../utils/generateMapByProfile.js';
 import { getTemplateSpawnCells, getRandomFreeHex } from '../utils/spawnUtils.js';
 import { hexDistance } from '../mechanics/hexUtils.js';
+import { initAllegiance } from '../core/diplomacy.js';
 
 export const dominator = {
   id: 'dominator',
@@ -58,6 +59,12 @@ export const dominator = {
       owner: null, claimant: null, claimTurns: 0
     }));
   },
+
+  // Dominator — "все против игрока": сильный стартовый перекос, чтобы враги
+  // не перебили друг друга без участия игрока, пока их отношения между собой
+  // не испортит реальный бой (см. core/diplomacy.js, ATTACK_REPERCUSSION).
+  // Другой сценарий может передать playerBias: 0 для симметричного FFA.
+  getInitialAllegiance: (owners) => initAllegiance(owners, { playerBias: -30 }),
 
   winCondition: (state) => {
     return !state.units.some(u => u.owner?.startsWith('enemy'));

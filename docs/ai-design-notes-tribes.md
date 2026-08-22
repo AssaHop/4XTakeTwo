@@ -425,6 +425,72 @@ const usableWeapons = unit.weType.filter(
 отдельная маленькая задача перед тем как сама разблокировка станет
 рабочей.
 
+## Allegiance-матрица вместо хардкода "атаковать player1" (2026-06-22)
+
+### Источник и вопрос пользователя
+
+Разбор `Diplomacy.java`/`SimpleAgent.evalAttack`/`AttackCommand.execute()` из
+форка [github.com/AssaHop/Tribes](https://github.com/AssaHop/Tribes) показал:
+в Tribes нет хардкода "человек vs AI" (движок вообще не знает, кто человек),
+вместо этого — числовая матрица `allegianceStatus[tribeA][tribeB]` в диапазоне
+`[-60, 60]`, которая:
+- используется как вес в `evalAttack` (хуже отношения → выше приоритет атаки);
+- портится от `AttackCommand` (`ATTACK_REPERCUSSION = -5` за удар) и захвата
+  города (`CAPTURE_REPERCUSSION = -30`);
+- улучшается через `SendStars` — это НЕ "предложение союза" из настоящей
+  Polytopia (там оно бесплатное), а буквальная передача звёзд другому племени,
+  где `updateAllegiance(numStars, ...)` поднимает отношения 1:1 на переданное
+  число; `MIN_STARS_SEND=15`, несмотря на имя, используется как ВЕРХНИЙ предел
+  за одну отправку (`numStars <= MIN_STARS_SEND` в `isFeasible()`), похоже на
+  неудачное имя константы в оригинале, не баг с нашей стороны;
+- каскадируется на союзников через `checkConsequences()` (упрощённо, не
+  переносили).
+
+Пользователь запросил: игрок должен оставаться приоритетной целью для всех
+enemy-фракций (чтобы AI не перебили друг друга без него), но не через хардкод
+— через тот же общий вес, что и у Tribes; агрессия должна расти от реального
+конфликта; в будущем — рычаг дипломатии от игрока; коэффициент — потенциально
+зависим от сценария.
+
+### Реализация (сессия 8, подтверждено пользователем "делай сразу")
+
+Новый модуль `src/core/diplomacy.js`:
+- `ALLEGIANCE_MAX = 60`, `ATTACK_REPERCUSSION = -5` — те же числа, что в Tribes;
+- `initAllegiance(owners, { playerBias = -30 })` — строит симметричную матрицу;
+  пары с `player1` стартуют на `playerBias`, пары enemy↔enemy — на `0`;
+- `getAllegiance(state, a, b)` / `adjustAllegiance(state, a, b, delta)` —
+  чтение и симметричное изменение с зажимом в `[-MAX, MAX]`.
+
+Подключение:
+- `core/game.js:initGame()` — `state.allegiance = state.scenario.getInitialAllegiance?.(state.turnOrder) ?? initAllegiance(state.turnOrder)`
+  — тот же паттерн диспетчеризации, что уже используют `winCondition`/`loseCondition`.
+- `scenarios/dominator.js` — явный `getInitialAllegiance: (owners) => initAllegiance(owners, { playerBias: -30 })`,
+  с комментарием что другой сценарий может передать `playerBias: 0` для
+  симметричного free-for-all. `conqueror.js` пока не переопределяет — использует
+  дефолт из `initAllegiance()` через fallback в `game.js`.
+- `core/combatLogic.js:performAttack()` — каждый удар вызывает
+  `adjustAllegiance(state, attacker.owner, target.owner, ATTACK_REPERCUSSION)`:
+  агрессия растёт от реального конфликта сама, без отдельного правила.
+- `ai/fsm/states/attackState.js` — убран хардкод `livePlayer1`/`if (target.owner === 'player1') score += 50`;
+  теперь кандидаты в цель — ВСЕ чужие юниты всегда, а приоритет решает
+  `score += -getAllegiance(gameState, unit.owner, target.owner)` в `scoreTarget()`.
+- `ai/aiManager.js:findBestTarget()` (Percy-добивание) — тоже обобщён с
+  `owner === 'player1'` на `owner !== unit.owner`, чтобы не расходиться с
+  основным таргетингом.
+
+### Не сделано (сознательно, зависит от ресурсной системы)
+
+Дипломатический рычаг ДЛЯ ИГРОКА (аналог `SendStars` — потратить что-то,
+поднять allegiance) не реализован: в игре пока нет ресурсной экономики
+(`Expand/захват с ресурсами` — открытое направление ниже, не начато), тратить
+буквально нечего. Как только появится ресурс — добавить симметричный
+`adjustAllegiance(state, 'player1', targetOwner, +N)` за его трату, тем же
+паттерном, что уже есть для `ATTACK_REPERCUSSION`.
+
+Естественное затухание вражды со временем (без действий игрока) тоже не
+добавлено — не запрашивалось, специально не стали изобретать лишний
+параметр сверх того, что обсуждалось.
+
 ## Открытые направления (заявлены 2026-06-21, не детализированы, не начаты)
 
 - **Expand/захват с ресурсами и новыми юнитами** — напрямую завязано на

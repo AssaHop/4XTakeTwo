@@ -3,6 +3,7 @@ import { hexDistance } from '../../../mechanics/hexUtils.js';
 import { hasLineOfSight } from '../../../mechanics/lineOfSight.js';
 import { findPath } from '../../../mechanics/pathfinding.js';
 import { getAttackDamage } from '../../../core/combatLogic.js';
+import { getAllegiance } from '../../../core/diplomacy.js';
  
 export class AttackState {
   constructor(gameState, owner) {
@@ -29,11 +30,10 @@ export class AttackState {
       // Юнит мог быть убит counter-attack'ом в предыдущей итерации
       if (!this.gameState.units.includes(unit)) continue;
 
-      // Пересчитываем цели ПЕРЕД каждым юнитом — видим актуальный HP и состав
-      const livePlayer1 = this.gameState.units.filter(u => u.owner === 'player1');
-      const allTargets = livePlayer1.length > 0
-        ? livePlayer1
-        : this.gameState.units.filter(u => u.owner !== this.owner);
+      // Пересчитываем цели ПЕРЕД каждым юнитом — видим актуальный HP и состав.
+      // Кандидаты — все чужие юниты (не только player1); кого из них реально
+      // атаковать решает allegiance-вес в scoreTarget().
+      const allTargets = this.gameState.units.filter(u => u.owner !== this.owner);
       // Оставляем только цели, которые этот юнит вообще может поразить (damageVs)
       const liveTargets = allTargets.filter(t => getAttackDamage(unit, t) !== null);
 
@@ -121,8 +121,13 @@ export class AttackState {
   scoreTarget(unit, target) {
     let score = 0;
 
-    // Приоритет: атаковать player1 сильнее чем других AI
-    if (target.owner === 'player1') score += 50;
+    // Дипломатический вес (allegiance-матрица, core/diplomacy.js): чем хуже
+    // отношения unit.owner↔target.owner, тем выше приоритет цели. Игрок
+    // стартует с перекосом (см. initAllegiance), поэтому остаётся
+    // приоритетной целью для всех enemy-фракций без отдельного if'а —
+    // но реальный конфликт между двумя AI тоже сработает, если их
+    // отношения испортятся сильнее, чем с игроком.
+    score += -getAllegiance(this.gameState, unit.owner, target.owner);
 
     // Опасность юнита по роли (из classTemplates.dangerScore)
     // WCA > WSB/WSS/авиация > WCC/WDD > WBB/WLC

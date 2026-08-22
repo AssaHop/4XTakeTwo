@@ -5,6 +5,7 @@ import { state } from '../core/state.js';
 import { evaluatePostAction } from './gameStateMachine.js';
 import { hasModule } from '../mechanics/units.js';
 import { WeaponTypes } from './modules/weaponTypes.js';
+import { adjustAllegiance, ATTACK_REPERCUSSION } from './diplomacy.js';
 
 function getWeaponRange(unit) {
   const weapons = Array.isArray(unit.weType) ? unit.weType : [unit.weType];
@@ -49,6 +50,7 @@ function performAttack(attacker, target) {
 
   target.hp = Math.max(0, target.hp - damage);
   attacker.canAct = false;
+  adjustAllegiance(state, attacker.owner, target.owner, ATTACK_REPERCUSSION);
 
   console.log(`⚔️ ${attacker.type} → ${target.type}[${target.targetClass}] ${damage}dmg → ${target.hp}/${target.maxHp}`);
 

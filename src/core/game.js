@@ -10,6 +10,7 @@ import { transitionTo, GameState } from './gameStateMachine.js';
 import { initProgressionSystem } from '../mechanics/progressionSystem.js';
 import { initMapIndex } from '../utils/initMapIndex.js';
 import { runAIForTurn, resetAIState } from '../ai/aiManager.js';
+import { initAllegiance } from './diplomacy.js';
 
 let scale = 1;
 let isDragging = false;
@@ -52,6 +53,9 @@ function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapType
   state.capturePoints = getInitialCapturePointsForScenario(scenarioName, state.mapIndex);
   state.initTurnOrder(enemyCount);
   state.scenario = getScenarioById(scenarioName);
+  state.allegiance = state.scenario.getInitialAllegiance
+    ? state.scenario.getInitialAllegiance(state.turnOrder)
+    : initAllegiance(state.turnOrder);
   state.gameOver = false;
   resetAIState();
 
