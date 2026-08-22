@@ -8,7 +8,8 @@ import {
   applyVerticalIslandGrowth,
   applyLandToHillFilter,
   applyWaterToDeepFilter,
-  applySurfRim
+  applySurfRim,
+  ensureWaterConnectivity
 } from './islandBuilder.js';
 
 import { defaultIsland } from './mapProfiles/defaultIsland.js';
@@ -64,6 +65,7 @@ export function generateMapByProfile(profileId = 'defaultIsland', size = 15, see
   }, 3);
   applySurfRim(map.flat(), 0.1);
   applyWaterToDeepFilter(map.flat(), 0.76);
+  ensureWaterConnectivity(map.flat());
 
   return map;
 }

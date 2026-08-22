@@ -234,5 +234,54 @@ export function applySurfRim(mapTiles, chance = 0.3) {
   pendingSurf.forEach(tile => tile.terrainType = 'surf');
 }
 
+// 🌊 Связность воды: находит все "запертые озёра" (водные тайлы, не
+// соединённые с самым большим водным телом на карте — открытым морем) и
+// закрывает их в сушу. Без этого морские юниты, заспауненные/загнанные в
+// такое озеро, физически не могут найти путь наружу (known-issues #4).
+const WATER_TYPES = new Set(['surf', 'water', 'deep']);
+
+export function ensureWaterConnectivity(mapTiles) {
+  const key = t => `${t.q},${t.r},${t.s}`;
+  const visited = new Set();
+  const components = [];
+
+  for (const tile of mapTiles) {
+    if (!WATER_TYPES.has(tile.terrainType) || visited.has(key(tile))) continue;
+
+    const component = [];
+    const queue = [tile];
+    visited.add(key(tile));
+
+    while (queue.length) {
+      const current = queue.pop();
+      component.push(current);
+
+      const neighbors = current.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
+      for (const neighbor of neighbors) {
+        if (!WATER_TYPES.has(neighbor.terrainType) || visited.has(key(neighbor))) continue;
+        visited.add(key(neighbor));
+        queue.push(neighbor);
+      }
+    }
+
+    components.push(component);
+  }
+
+  if (components.length <= 1) return; // всё уже одно тело воды (или воды нет)
+
+  const openSea = components.reduce((a, b) => (b.length > a.length ? b : a));
+  let lockedTiles = 0;
+
+  for (const component of components) {
+    if (component === openSea) continue;
+    lockedTiles += component.length;
+    for (const tile of component) tile.terrainType = 'land';
+  }
+
+  if (lockedTiles > 0) {
+    console.warn(`🌊 ensureWaterConnectivity: закрыто ${lockedTiles} тайлов запертой воды (${components.length - 1} озёр) → land`);
+  }
+}
+
 // 👯 Алиас
 export const buildZonalIslands = generateZonalIslands;

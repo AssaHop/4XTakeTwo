@@ -37,31 +37,20 @@ function evaluatePostAction(unit, { type, killed = false }) {
   console.log(`🧠 [PostEval] ${type} — Killed: ${killed} | Flags:`, unit);
 
   // ————— ATTACK LOGIC —————
+  // Percy/Flee уже применены в combatLogic.js:performAttack (единственное
+  // место, где решается КОГДА они срабатывают — actBonusUsed-гейт живёт
+  // только там). Здесь просто реагируем UI-переходом на уже готовый
+  // результат, не пересчитывая условия срабатывания второй раз.
   if (type === 'attack') {
-    // 🔁 Percy: доп. атака (цепочка)
-    if (unit.hasModule?.('Percy') && killed) {
-      unit.canAct = true;
-
-      // ❌ Flee отключается после Percy-чейн
-      unit.canMove = false;
-      unit.actBonusUsed = true;
-      unit.moveBonusUsed = true;
-
-      console.log('🔁 [Percy Triggered] Repeat attack granted (chain)');
+    if (unit.canAct) {
+      console.log('🔁 [Percy] Repeat attack available — UI update');
       transitionTo(GameState.UNIT_SELECTED);
       highlightOnlyAttacks(unit);
       return;
     }
 
-    // 🏃 Flee — движение после атаки
-    if (
-      unit.hasModule?.('Flee') &&
-      !unit.actBonusUsed &&
-      type === 'attack'
-    ) {
-      unit.canMove = true;
-      unit.actBonusUsed = true;
-      console.log('🏃 [Flee Triggered] Move after attack granted');
+    if (unit.canMove) {
+      console.log('🏃 [Flee] Move after attack available — UI update');
       transitionTo(GameState.UNIT_SELECTED);
       highlightUnitContext(unit);
       return;

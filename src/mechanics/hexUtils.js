@@ -31,7 +31,7 @@ export function getHexLineDual(a, b) {
     };
   }
 
-  function hexRound(h) {
+  export function hexRound(h) {
     let rq = Math.round(h.q);
     let rr = Math.round(h.r);
     let rs = Math.round(h.s);

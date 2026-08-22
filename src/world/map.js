@@ -1,5 +1,5 @@
 // 📋 src/world/map.js
-import { state } from '../core/state.js'; // ⬅️ нужно для доступа к state.mapIndex
+import { hexRound } from '../mechanics/hexUtils.js';
 
 const HEX_RADIUS = 40;
 
@@ -31,21 +31,10 @@ function pixelToCube(x, y, offsetX = 0, offsetY = 0, scale = 1) {
   return cubeRound({ q, r, s });
 }
 
-function cubeRound({ q, r, s }) {
-  let rq = Math.round(q);
-  let rr = Math.round(r);
-  let rs = Math.round(s);
-
-  const dq = Math.abs(rq - q);
-  const dr = Math.abs(rr - r);
-  const ds = Math.abs(rs - s);
-
-  if (dq > dr && dq > ds) rq = -rr - rs;
-  else if (dr > ds) rr = -rq - rs;
-  else rs = -rq - rr;
-
-  return { q: rq, r: rr, s: rs };
-}
+// Общая формула округления кубических координат живёт в mechanics/hexUtils.js
+// (там же её использует getHexLine); здесь просто сохраняем имя cubeRound,
+// под которым её знают внешние вызовы (ui/events.js).
+const cubeRound = hexRound;
 
 function getNeighbors(q, r, s) {
   return directions.map(dir => ({
@@ -90,11 +79,6 @@ function getTile(q, r, s) {
   return mapTiles.find(t => t.q === q && t.r === r && t.s === s);
 }
 
-// ⚡ Новый быстрый доступ — если mapIndex уже есть
-function getTileFast(q, r, s) {
-  return state.mapIndex?.[`${q},${r},${s}`];
-}
-
 function getHexCount(size) {
   let count = 0;
   for (let q = -size; q <= size; q++) {
@@ -109,7 +93,6 @@ function getHexCount(size) {
 export {
   generateHexMap,
   getTile,
-  getTileFast,        // ✅ экспортируем быстрый метод отдельно
   cubeToPixel,
   pixelToCube,
   cubeRound,
