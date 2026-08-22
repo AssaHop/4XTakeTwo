@@ -38,6 +38,13 @@ class Unit {
     this.dangerScore   = options.dangerScore   ?? 0;
     this.lifeTurns     = options.lifeTurns     ?? null;
     this.noCounter     = options.noCounter     ?? false;
+    // DEF — отдельная от atDamage (ATK) характеристика, по формуле боя
+    // Polytopia (attackForce/defenceForce из ATK/DEF × HP%, см.
+    // combatLogic.js:computeForces). Дефолт = atDamage (симметрично,
+    // атака и контратака равны при полном HP с обеих сторон) — per-класс
+    // асимметрию (глушь-пушки, танки и т.д.) можно завести отдельно в
+    // classTemplates.js когда дойдёт очередь до баланса.
+    this.def           = options.def           ?? this.atDamage;
     this.targetClass   = options.targetClass   ?? 'surface';
     this.veteranLevel  = 0;
     this.kills         = 0;

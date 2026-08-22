@@ -2,7 +2,7 @@
 import { hexDistance } from '../../../mechanics/hexUtils.js';
 import { hasLineOfSight } from '../../../mechanics/lineOfSight.js';
 import { findPath } from '../../../mechanics/pathfinding.js';
-import { getAttackDamage } from '../../../core/combatLogic.js';
+import { getAttackDamage, getCounterDamage } from '../../../core/combatLogic.js';
 import { getAllegiance } from '../../../core/diplomacy.js';
  
 export class AttackState {
@@ -149,8 +149,10 @@ export class AttackState {
     if (unit.hp <= 1) score -= 30;
 
     // Шаг B: штраф за опасный размен (SimpleAgent.evalAttack)
-    // Если мы в зоне атаки цели И цель убьёт нас ответным ударом — избегать
-    const counterDmg = getAttackDamage(target, unit) ?? 0;
+    // Если мы в зоне атаки цели И цель убьёт нас ответным ударом — избегать.
+    // getCounterDamage — реальный defenceResult (ATK/DEF/HP% формула), не
+    // "как будто target атакует нас своим оружием" — это разные числа.
+    const counterDmg = getCounterDamage(unit, target) ?? 0;
     if (dist <= (target.atRange || 1) && counterDmg >= unit.hp) {
       score -= 60;
     }

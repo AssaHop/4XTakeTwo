@@ -13,9 +13,16 @@ function getWeaponRange(unit) {
   return Math.max(...ranges, unit.atRange || 1);
 }
 
-// Возвращает реальный урон attacker по target с учётом damageVs/targetClass,
-// либо null если ни одно оружие не может поразить класс цели.
-export function getAttackDamage(attacker, target) {
+// Множитель из формулы боя настоящей Polytopia (polytopia.fandom.com/wiki/Combat,
+// раздел Damage Formula) — attackResult/defenceResult считаются через него.
+const ATTACK_ACCELERATOR = 4.5;
+
+// Лучший доступный "сырой" ATK attacker против targetClass цели, с учётом
+// damageVs (какое оружие вообще может поразить этот класс и с каким
+// множителем) и weaponUnlocks/veteranLevel. Без округления — округляем
+// один раз, в самом конце, на attackResult/defenceResult.
+// null = ни одно оружие не может поразить этот класс цели вообще.
+function getEffectiveAttack(attacker, target) {
   const allWeapons = Array.isArray(attacker.weType)
     ? attacker.weType
     : (attacker.weType ? [attacker.weType] : []);
@@ -29,10 +36,63 @@ export function getAttackDamage(attacker, target) {
     const profile = WeaponTypes[w];
     if (!profile?.damageVs) continue;
     if (!(tClass in profile.damageVs)) continue;
-    const dmg = Math.round(attacker.atDamage * profile.damageVs[tClass]);
-    if (best === null || dmg > best) best = dmg;
+    const eff = attacker.atDamage * profile.damageVs[tClass];
+    if (best === null || eff > best) best = eff;
   }
   return best;
+}
+
+// attackForce/defenseForce/totalForce — общая часть формулы, одна на пару
+// attacker→target, использует и getAttackDamage, и getCounterDamage (чтобы
+// оба считались из одного и того же обмена, как в оригинале, а не как два
+// independent "что если").
+function computeForces(attacker, target) {
+  const effectiveAttack = getEffectiveAttack(attacker, target);
+  if (effectiveAttack === null) return null;
+
+  const attackForce = effectiveAttack * (attacker.hp / attacker.maxHp);
+  // defenseBonus — множитель от террейна/укреплений, у нас пока не
+  // реализован (см. project-memory "Terrain modifiers"), дефолт 1.
+  const defenseForce = target.def * (target.hp / target.maxHp) * (target.defenseBonus ?? 1);
+
+  return { effectiveAttack, attackForce, defenseForce, totalForce: attackForce + defenseForce };
+}
+
+// Урон attacker → target (attackResult). null = attacker физически не может
+// поразить класс цели (ни одно оружие не подходит).
+export function getAttackDamage(attacker, target) {
+  const f = computeForces(attacker, target);
+  if (!f) return null;
+  return Math.round((f.attackForce / f.totalForce) * f.effectiveAttack * ATTACK_ACCELERATOR);
+}
+
+// Ответный урон target → attacker, ЕСЛИ attacker атакует target
+// (defenceResult, из ТОГО ЖЕ обмена что и getAttackDamage, не независимый
+// пересчёт). null если: attacker.noCounter (Surprise-эквивалент — авиация
+// бьёт безответно), либо у target физически нет оружия против класса
+// attacker (наш дополнительный гейт поверх оригинальной формулы — у
+// настоящей Polytopia нет air/sub/surface, а у нас подлодка/авиация
+// по дизайну бьют не всех, см. ai-design-notes-tribes.md).
+export function getCounterDamage(attacker, target) {
+  if (attacker.noCounter) return null;
+  const f = computeForces(attacker, target);
+  if (!f) return null;
+  if (getEffectiveAttack(target, attacker) === null) return null;
+  return Math.round((f.defenseForce / f.totalForce) * target.def * ATTACK_ACCELERATOR);
+}
+
+function registerKill(killer) {
+  killer.kills = (killer.kills || 0) + 1;
+  const newLevel = killer.kills >= 6 ? 3 : killer.kills >= 3 ? 2 : 1;
+  if (newLevel > (killer.veteranLevel || 0)) {
+    killer.veteranLevel = newLevel;
+    console.log(`⭐ [VET] ${killer.type} достиг ветеранского уровня ${newLevel} (${killer.kills} килов)`);
+  }
+}
+
+function removeUnit(unit) {
+  const idx = state.units.indexOf(unit);
+  if (idx >= 0) state.units.splice(idx, 1);
 }
 
 function performAttack(attacker, target) {
@@ -48,6 +108,20 @@ function performAttack(attacker, target) {
     return;
   }
 
+  // 🛡️ Контратака (defenceResult формулы Polytopia — см. getCounterDamage)
+  // считается ДО применения основного урона — attackForce/defenseForce
+  // берутся из HP обеих сторон на момент начала обмена, а не "цель уже
+  // подранена, поэтому её ответ слабее" (это одновременный обмен, не
+  // потом-контратака). Нужна дистанция в пределах ЕЁ собственной дальности
+  // ("cannot reach... the attacker" в оригинале) — getCounterDamage её не
+  // проверяет сама. Авиация (noCounter=true) бьёт безответно.
+  const counterRange = getWeaponRange(target);
+  const dx = Math.abs(target.q - attacker.q);
+  const dy = Math.abs(target.r - attacker.r);
+  const dz = Math.abs(target.s - attacker.s);
+  const inCounterRange = dx <= counterRange && dy <= counterRange && dz <= counterRange;
+  const counterDamage = inCounterRange ? getCounterDamage(attacker, target) : null;
+
   target.hp = Math.max(0, target.hp - damage);
   attacker.canAct = false;
   adjustAllegiance(state, attacker.owner, target.owner, ATTACK_REPERCUSSION);
@@ -57,15 +131,28 @@ function performAttack(attacker, target) {
   let killed = false;
 
   if (target.hp <= 0) {
-    const idx = state.units.indexOf(target);
-    if (idx >= 0) state.units.splice(idx, 1);
+    removeUnit(target);
     console.log(`💀 ${target.type} погиб`);
     killed = true;
-    attacker.kills = (attacker.kills || 0) + 1;
-    const newLevel = attacker.kills >= 6 ? 3 : attacker.kills >= 3 ? 2 : 1;
-    if (newLevel > (attacker.veteranLevel || 0)) {
-      attacker.veteranLevel = newLevel;
-      console.log(`⭐ [VET] ${attacker.type} достиг ветеранского уровня ${newLevel} (${attacker.kills} килов)`);
+    registerKill(attacker);
+  } else {
+    if (counterDamage !== null) {
+      attacker.hp = Math.max(0, attacker.hp - counterDamage);
+      console.log(`🛡️ ${target.type} контратакует → ${attacker.type} ${counterDamage}dmg → ${attacker.hp}/${attacker.maxHp}`);
+
+      if (attacker.hp <= 0) {
+        removeUnit(attacker);
+        console.log(`💀 ${attacker.type} погиб от контратаки`);
+        registerKill(target);
+
+        // Атакующий погиб — снимаем выделение/подсветку с него (не с
+        // защитника: тот не совершал полноценного хода, Percy-цепочку
+        // ему запускать не нужно).
+        attacker.canMove = false;
+        evaluatePostAction(attacker, { type: 'attack', killed: false });
+        state.hasActedThisTurn = true;
+        return;
+      }
     }
   }
 
