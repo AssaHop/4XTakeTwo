@@ -3,7 +3,6 @@ import { state } from '../core/state.js';
 import { ClassTemplates } from '../core/classTemplates.js';
 import { hasLineOfSight } from './lineOfSight.js';
 import { applyModules } from '../core/applyModules.js';
-import { setupActionFlags } from '../core/unitFlags.js';
 import { techTree } from '../core/techTree.js';
 import { ModuleDefinitions } from '../core/modules/allModulesRegistry.js';
 import { WeaponTypes } from '../core/modules/weaponTypes.js';
@@ -51,7 +50,6 @@ class Unit {
 
     applyModules(this);
     this.recalculateMobility();
-    setupActionFlags(this);
 
     this.aiRole = options.aiProfile?.role || 'neutral';
     this.aiOverrides = options.aiProfile?.overrides || {};
@@ -67,7 +65,6 @@ class Unit {
       this.modules.push(modName);
       applyModules(this);
       this.recalculateMobility();
-      setupActionFlags(this);
     }
   }
 

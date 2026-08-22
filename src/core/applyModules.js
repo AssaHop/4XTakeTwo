@@ -1,7 +1,6 @@
 // 📂 core/applyModules.js — улучшенная версия
 
 import { ModuleDefinitions } from './modules/allModulesRegistry.js';
-import { setupActionFlags } from './unitFlags.js';
 
 export function applyModules(unit) {
   if (!Array.isArray(unit.modules)) return;
@@ -29,7 +28,4 @@ export function applyModules(unit) {
   if (typeof unit.recalculateMobility === 'function') {
     unit.recalculateMobility();
   }
-
-  // 🎯 Повторно применим флаги
-  setupActionFlags(unit);
 }

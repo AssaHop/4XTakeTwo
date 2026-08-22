@@ -77,7 +77,7 @@ function handleCanvasClick(event) {
 
     // ✅ SELECT FRIENDLY
     const canSelect = clickedUnit.canAct || clickedUnit.canMove ||
-      (clickedUnit.canRepeatAttackOnKill && clickedUnit.lastAttackWasKill);
+      (clickedUnit.hasModule?.('Percy') && clickedUnit.lastAttackWasKill);
     if (canSelect) {
       selectUnit(clickedUnit);
       transitionTo(GameState.UNIT_SELECTED);

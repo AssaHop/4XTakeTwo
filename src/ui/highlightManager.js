@@ -16,7 +16,7 @@ export function highlightUnitContext(unit) {
   const canHighlightMoves = unit.canMove;
   const canHighlightAttacks =
     unit.canAct ||
-    (unit.canRepeatAttackOnKill && unit.lastAttackWasKill);
+    (unit.hasModule?.('Percy') && unit.lastAttackWasKill);
 
   const moveHexes = canHighlightMoves ? unit.getAvailableHexes() : [];
   const attackHexes = canHighlightAttacks ? Unit.getAttackableHexes(unit) : [];
