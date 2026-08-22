@@ -39,8 +39,12 @@ const ClassTemplates = {
     }
   },
   WBB: {
-    hp: 14,
-    atDamage: 4,
+    // Танк: DEF выше ATK — иначе линкор one-shot'ает мелкие классы вместо
+    // честных 3-4 ударов в обе стороны (см. docs/ai-design-notes-tribes.md,
+    // раздел "Баланс: hits-to-kill", сессия 8).
+    hp: 15,
+    atDamage: 3,
+    def: 5,
     moRange: 3,
     viRange: 100,
     weType: ['Main', 'Small'],
