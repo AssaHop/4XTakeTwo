@@ -2,9 +2,17 @@
 import { hexDistance } from '../../../mechanics/hexUtils.js';
 import { hasLineOfSight } from '../../../mechanics/lineOfSight.js';
 import { findPath } from '../../../mechanics/pathfinding.js';
-import { getAttackDamage, getCounterDamage } from '../../../core/combatLogic.js';
+import { getAttackDamage } from '../../../core/combatLogic.js';
 import { getAllegiance } from '../../../core/diplomacy.js';
- 
+import { simulateAttack, tradeValue } from '../../combatSimulator.js';
+
+// Шаг C: масштаб tradeValue относительно остальных слагаемых scoreTarget
+// (allegiance 0-60, dangerScore 10-45, добивание до 30). tradeValue сам по
+// себе уже в диапазоне dangerScore (10-45 за гарантированный килл/смерть),
+// т.е. без множителя уже сопоставим со старыми +40/−60. 1 = не искажать;
+// тюнинговый рычаг на будущее, если понадобится по playtest.
+const TRADE_VALUE_SCALE = 1;
+
 export class AttackState {
   constructor(gameState, owner) {
     this.gameState = gameState;
@@ -137,10 +145,6 @@ export class AttackState {
     const hpPercent = target.hp / (target.maxHp || target.hp);
     score += (1 - hpPercent) * 30;
 
-    // Можем убить этим ударом — очень ценно (с учётом реального урона по классу цели)
-    const actualDmg = getAttackDamage(unit, target) ?? 0;
-    if (target.hp <= actualDmg) score += 40;
-
     // Штраф за дистанцию — уменьшен с 3 до 1 чтобы дальние юниты не idle
     const dist = hexDistance(unit, target);
     score -= dist * 1;
@@ -148,14 +152,14 @@ export class AttackState {
     // Не атаковать если сами почти мертвы
     if (unit.hp <= 1) score -= 30;
 
-    // Шаг B: штраф за опасный размен (SimpleAgent.evalAttack)
-    // Если мы в зоне атаки цели И цель убьёт нас ответным ударом — избегать.
-    // getCounterDamage — реальный defenceResult (ATK/DEF/HP% формула), не
-    // "как будто target атакует нас своим оружием" — это разные числа.
-    const counterDmg = getCounterDamage(unit, target) ?? 0;
-    if (dist <= (target.atRange || 1) && counterDmg >= unit.hp) {
-      score -= 60;
-    }
+    // Шаг C: симулированный обмен вместо двух хардкод-порогов (было: +40 за
+    // любой килл, −60 за любую свою смерть, независимо от того, кого убили/
+    // потеряли). Контр-риск учитывается только если мы СЕЙЧАС в радиусе
+    // ответки цели (тот же guard, что был у старого −60) — "можем ли добить"
+    // такого guard'а не требует, приоритет цели валиден и до подхода.
+    const inCounterRange = dist <= (target.atRange || 1);
+    const sim = simulateAttack(unit, target, { inCounterRange });
+    score += tradeValue(unit, target, sim) * TRADE_VALUE_SCALE;
 
     return score;
   }
