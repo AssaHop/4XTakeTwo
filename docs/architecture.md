@@ -19,6 +19,15 @@ damageVs/targetClass, авиационная механика, флит 5v5 в d
 2026-06-22-session7.md` и `2026-08-23-session8.md` как источник правды
 там, где они расходятся с этим файлом.
 
+**Сверено и дополнено сессией 9 (2026-08-23)** — см. подробности в
+`docs/sessions/2026-08-23-session9.md`: Splash (WBB), fog of war
+(`world/fogOfWar.js`, был пустым стабом) с призраками последней позиции,
+terrain movement cost по классам (`unit.terrainCost`, новые модули
+`Draft`/`Submerge`, `getAvailableHexes`/`findPath` переведены на
+Dijkstra), своё оружие авиации (`GunA`/`BombA`/`TorpA`, range 2 вместо
+6-7). Открыто: авиация one-shot'ает WDD/WCC (known-issues #31), fuel-
+механика авиации — согласовано, не реализовано.
+
 ## Структура каталогов
 
 ```
