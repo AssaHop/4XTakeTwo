@@ -38,6 +38,49 @@ export const WeaponTypes = {
     damageVs: { surface: 1.0, air: 0.5 }
   },
 
+  // Авиация (AAF/ADB/ATB) до сессии 9 использовала корабельное оружие
+  // (Small/Main/Torp) — отсюда range 6-7, как у обычного корабля, хотя
+  // по дизайну (docs/ai-design-notes-tribes.md, сессия 6-7) самолёт
+  // должен физически подлететь близко к цели, чтобы не быть безопасным
+  // "снарядом издалека" (носитель уже безопасен сам по себе — см. тот же
+  // документ). Профиль damageVs скопирован 1:1 с заимствованного оружия —
+  // меняется только range, баланс урона не трогали.
+  AAA: {
+    name: 'Anti-Air Cannon',
+    description: 'Оружие AAF (Fighter) — короткая дальность, тот же профиль что был у Small.',
+    range: 2,
+    piercesCover: false,
+    canTargetSubmerged: false,
+    aoeRadius: 0,
+    tags: ['air-to-air'],
+    blockLOS: ['hill', 'mount', 'peak'],
+    damageVs: { surface: 1.0, air: 0.5 }
+  },
+
+  Bomb: {
+    name: 'Dive Bomb',
+    description: 'Оружие ADB (Dive bomber) — короткая дальность, тот же профиль что был у Main.',
+    range: 2,
+    piercesCover: true,
+    canTargetSubmerged: false,
+    aoeRadius: 0,
+    tags: ['bomb', 'anti-ship'],
+    blockLOS: ['peak', 'mount'],
+    damageVs: { surface: 1.0 }
+  },
+
+  AerialTorp: {
+    name: 'Aerial Torpedo',
+    description: 'Оружие ATB (Torpedo bomber) — короткая дальность, тот же профиль что был у Torp.',
+    range: 2,
+    piercesCover: false,
+    canTargetSubmerged: true,
+    aoeRadius: 0,
+    tags: ['underwater', 'anti-sub', 'bomb'],
+    blockLOS: ['surf', 'land', 'hill', 'mount', 'peak'],
+    damageVs: { surface: 1.0, sub: 1.0 }
+  },
+
   DC: {
     name: 'Depth Charge',
     description: 'Anti-submarine weapon; cannot target surface ships or aircraft',

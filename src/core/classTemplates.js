@@ -140,7 +140,9 @@ const ClassTemplates = {
     atDamage: 3,
     moRange: 5,
     viRange: 6,
-    weType: ['Small'],
+    // Своё оружие вместо заимствованного у WDD/WCC "Small" — сессия 9,
+    // короткая дальность (2), самолёт должен физически подлететь.
+    weType: ['AAA'],
     targetClass: 'air',
     spawnTerrain: ['surf', 'water', 'deep'],
     modules: ['Air'],
@@ -157,7 +159,9 @@ const ClassTemplates = {
     atDamage: 5,
     moRange: 4,
     viRange: 6,
-    weType: ['Main'],
+    // Своё оружие вместо заимствованного у WBB/WLC "Main" — сессия 9,
+    // короткая дальность (2), самолёт должен физически подлететь.
+    weType: ['Bomb'],
     targetClass: 'air',
     spawnTerrain: ['surf', 'water', 'deep'],
     modules: ['Air'],
@@ -174,7 +178,9 @@ const ClassTemplates = {
     atDamage: 4,
     moRange: 4,
     viRange: 6,
-    weType: ['Torp'],
+    // Своё оружие вместо заимствованного у WDD "Torp" — сессия 9,
+    // короткая дальность (2), самолёт должен физически подлететь.
+    weType: ['AerialTorp'],
     targetClass: 'air',
     spawnTerrain: ['surf', 'water', 'deep'],
     modules: ['Air'],
