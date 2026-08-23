@@ -25,8 +25,10 @@ damageVs/targetClass, авиационная механика, флит 5v5 в d
 terrain movement cost по классам (`unit.terrainCost`, новые модули
 `Draft`/`Submerge`, `getAvailableHexes`/`findPath` переведены на
 Dijkstra), своё оружие авиации (`GunA`/`BombA`/`TorpA`, range 2 вместо
-6-7). Открыто: авиация one-shot'ает WDD/WCC (known-issues #31), fuel-
-механика авиации — согласовано, не реализовано.
+6-7), баланс-правка следом же (`ADB`/`ATB.atDamage` вниз — убран
+one-shot по WDD/WCC, `GunA` больше не бьёт корабли вообще — known-issues
+#31, закрыт). Fuel-механика для авиации решено НЕ заводить отдельно —
+`lifeTurns` уже покрывает этот смысл.
 
 ## Структура каталогов
 
@@ -244,6 +246,17 @@ AAF/ADB/ATB) — Surprise-эквивалент реальной Polytopia (ат�
 соответственно) — баланс урона не менялся, только дальность. Проверено:
 `getAttackDamage(ADB, WDD)` даёт те же 16dmg, что и раньше, `atRange` упал
 с 6 до 2.
+
+**Баланс-правка следом же в сессии 9** (known-issues #31, найдено и
+закрыто в одной сессии): те 16dmg ADB по WDD(10hp) — гарантированный
+one-shot без контратаки (`noCounter`). `ADB.atDamage` 5→3, `ATB.atDamage`
+4→3 — hits-to-kill methodology сессии 8 (2 удара WDD/WCC, 3 — WBB, нигде
+one-shot). Заодно `GunA.damageVs` (AAF) сведён к `{air:1.0}` (было
+`{surface:1.0, air:0.5}`) — реализация пункта бэклога сессии 8 "AAF
+должен физически не мочь атаковать корабли, только перехватывать
+авиацию" (`ai-design-notes-tribes.md`). Итог: AAF — чистый
+воздух-в-воздух контр ADB/ATB (1 удар каждого), по кораблям `getAttackDamage`
+теперь возвращает `null` (не "слабо" — буквально не может).
 
 ## Авиация (добавлено сессией 6)
 

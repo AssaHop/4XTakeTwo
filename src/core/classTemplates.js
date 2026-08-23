@@ -156,7 +156,11 @@ const ClassTemplates = {
   },
   ADB: {
     hp: 3,
-    atDamage: 5,
+    // Было 5 — one-shot'ало WDD(16dmg vs 10hp) и WCC(14dmg vs 12hp) без
+    // единого шанса на ответку (noCounter). Снижено методологией
+    // hits-to-kill сессии 8: теперь 2 удара и WDD, и WCC (см.
+    // known-issues #31, найдено и исправлено сессией 9).
+    atDamage: 3,
     moRange: 4,
     viRange: 6,
     // Своё оружие вместо заимствованного у WBB/WLC "Main" — сессия 9,
@@ -175,7 +179,9 @@ const ClassTemplates = {
   },
   ATB: {
     hp: 2,
-    atDamage: 4,
+    // Было 4 — one-shot'ало WDD(12dmg vs 10hp) без ответки. Снижено той
+    // же методологией что ADB выше (known-issues #31).
+    atDamage: 3,
     moRange: 4,
     viRange: 6,
     // Своё оружие вместо заимствованного у WDD "Torp" — сессия 9,

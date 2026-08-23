@@ -47,14 +47,20 @@ export const WeaponTypes = {
   // меняется только range, баланс урона не трогали.
   GunA: {
     name: 'Anti-Air Cannon',
-    description: 'Оружие AAF (Fighter) — короткая дальность, тот же профиль что был у Small.',
+    // Сессия 9, баланс-фикс: AAF (Fighter) больше НЕ может атаковать
+    // корабли вообще (нет ключа surface — не "слабо", а физически не
+    // может, см. docs/ai-design-notes-tribes.md, раздел про AAF, план
+    // ещё сессии 6-7, реализовать было нечем до своего оружия). Полный
+    // урон по air — это прямой контр ADB/ATB, задуманная роль
+    // перехватчика.
+    description: 'Оружие AAF (Fighter) — короткая дальность, только против воздуха.',
     range: 2,
     piercesCover: false,
     canTargetSubmerged: false,
     aoeRadius: 0,
     tags: ['air-to-air'],
     blockLOS: ['hill', 'mount', 'peak'],
-    damageVs: { surface: 1.0, air: 0.5 }
+    damageVs: { air: 1.0 }
   },
 
   BombA: {
