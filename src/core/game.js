@@ -11,6 +11,7 @@ import { initProgressionSystem } from '../mechanics/progressionSystem.js';
 import { initMapIndex } from '../utils/initMapIndex.js';
 import { runAIForTurn, resetAIState } from '../ai/aiManager.js';
 import { initAllegiance } from './diplomacy.js';
+import { updateVisibility } from '../world/fogOfWar.js';
 
 let scale = 1;
 let isDragging = false;
@@ -57,6 +58,7 @@ function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapType
     ? state.scenario.getInitialAllegiance(state.turnOrder)
     : initAllegiance(state.turnOrder);
   state.gameOver = false;
+  state.fog = {};
   resetAIState();
 
   if (!map || map.length === 0) {
@@ -73,6 +75,7 @@ function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapType
     generateUnits(unitsList);
   }
 
+  updateVisibility(state, 'player1');
   renderMap(scale, offset);
   renderUnits(scale, offset);
   updateEndTurnButton();

@@ -4,6 +4,7 @@ import { performAttack } from '../core/combatLogic.js';
 import { hexDistance } from '../mechanics/hexUtils.js';
 import { hasLineOfSight } from '../mechanics/lineOfSight.js';
 import { resetAviationState } from '../core/aviationLogic.js';
+import { isVisible } from '../world/fogOfWar.js';
 
 const fsmMap = new Map();
 
@@ -115,7 +116,8 @@ function executeAttack(unit, target, gameState, owner) {
 function findBestTarget(unit, gameState) {
   const targets = gameState.units.filter(u =>
     u.owner !== unit.owner &&
-    hexDistance(unit, u) <= unit.atRange
+    hexDistance(unit, u) <= unit.atRange &&
+    isVisible(gameState, unit.owner, u.q, u.r, u.s)
   );
   if (!targets.length) return null;
   return targets.sort((a, b) => a.hp - b.hp)[0]; // добиваем слабейшего

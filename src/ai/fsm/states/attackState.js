@@ -5,6 +5,7 @@ import { findPath } from '../../../mechanics/pathfinding.js';
 import { getAttackDamage } from '../../../core/combatLogic.js';
 import { getAllegiance } from '../../../core/diplomacy.js';
 import { simulateAttack, tradeValue } from '../../combatSimulator.js';
+import { isVisible } from '../../../world/fogOfWar.js';
 
 // Шаг C: масштаб tradeValue относительно остальных слагаемых scoreTarget
 // (allegiance 0-60, dangerScore 10-45, добивание до 30). tradeValue сам по
@@ -43,7 +44,11 @@ export class AttackState {
       // атаковать решает allegiance-вес в scoreTarget().
       const allTargets = this.gameState.units.filter(u => u.owner !== this.owner);
       // Оставляем только цели, которые этот юнит вообще может поразить (damageVs)
-      const liveTargets = allTargets.filter(t => getAttackDamage(unit, t) !== null);
+      // И которые owner реально видит сейчас (fogOfWar) — иначе AI бьёт из тумана.
+      const liveTargets = allTargets.filter(t =>
+        getAttackDamage(unit, t) !== null &&
+        isVisible(this.gameState, this.owner, t.q, t.r, t.s)
+      );
 
       const action = this.decideAction(unit, liveTargets);
       actions.push(action);

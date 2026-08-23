@@ -122,7 +122,6 @@ index.html → core/game.js (DOMContentLoaded)
 - `core/unitActingActions.js` (`runActingAction`) — не вызывается, но
   полезен как чек-лист нереализованных абилок: Boost, Explode,
   Seize-capture, Invade.
-- `world/fogOfWar.js` — пустой файл.
 - `ui/input.js` — пустой файл. Критично для Telegram WebApp: сейчас
   управление только через mouse events (`mousedown`/`wheel`/`click` в
   `game.js`/`events.js`), на мобильном клиенте Telegram нет touch.
