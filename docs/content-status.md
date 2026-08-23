@@ -44,7 +44,7 @@
 | Restore | Действие лечения всех союзников вокруг | ❌ | `unit.abilities.push('healNearby')` нигде не читается |
 | Percy | Повторная атака при убийстве | ✅ | Через `hasModule('Percy')` в `combatLogic.js`, `aiManager.js`, `units.js:selectUnit`, `ui/highlightManager.js`, `ui/events.js` — самый полно подключённый модуль |
 | Corrupt | Накладывает эффект corrode на врага | ⚠️ | Через `hasModule(attacker,'Corrupt')` в `combatLogic.js`, пишет `target.status.push('corroded')` — статус нигде дальше не читается, эффекта на игру нет |
-| Splash | Урон по площади | ❌ | `unit.splashDamage` нигде не читается |
+| Splash | Урон по площади | ✅ | **Сессия 9**: `combatLogic.js:performAttack()` — после основного удара бьёт всех вражеских юнитов на соседних с целью гексах той же формулой (`getAttackDamage`), но `round(×0.5)` — половина от полного удара, без контратаки от них и без влияния на Percy-цепочку основной цели. Подключён только WBB (`classTemplates.js`) |
 | Stealth | Невидимость для врагов | ❌ | `unit.invisible` нигде не читается |
 | Still | Запрещает врагам ответную атаку | ❌ | `unit.disableEnemyRetaliation` нигде не читается |
 | Ambush | Предотвращает ответ врага | ❌ | `unit.ambushAttack` нигде не читается |
@@ -94,10 +94,11 @@
 
 ## Итог
 
-9 из ~35 модулей/флагов (Dual, Sail, Navy, Air, Charge, Flee, Percy, `noCounter`,
-плюс частично Corrupt/Surge через отдельный механизм без итогового эффекта)
-реально влияют на геймплей. Остальные ~26 — описаны в реестре, выставляют
-флаг на юните, но ни один файл игровой логики этот флаг не проверяет.
+10 из ~35 модулей/флагов (Dual, Sail, Navy, Air, Charge, Flee, Percy, Splash,
+`noCounter`, плюс частично Corrupt/Surge через отдельный механизм без
+итогового эффекта) реально влияют на геймплей. Остальные ~25 — описаны в
+реестре, выставляют флаг на юните, но ни один файл игровой логики этот флаг
+не проверяет.
 
 `unitActingActions.js` (мёртвый файл, см. AGENTS.md) содержит частичный
 список того, что планировалось как "action"-модули (Boost, Explode,

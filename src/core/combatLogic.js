@@ -6,6 +6,7 @@ import { evaluatePostAction } from './gameStateMachine.js';
 import { hasModule } from '../mechanics/units.js';
 import { WeaponTypes } from './modules/weaponTypes.js';
 import { adjustAllegiance, ATTACK_REPERCUSSION } from './diplomacy.js';
+import { getNeighbors } from '../world/map.js';
 
 function getWeaponRange(unit) {
   const weapons = Array.isArray(unit.weType) ? unit.weType : [unit.weType];
@@ -127,6 +128,33 @@ function performAttack(attacker, target) {
   adjustAllegiance(state, attacker.owner, target.owner, ATTACK_REPERCUSSION);
 
   console.log(`⚔️ ${attacker.type} → ${target.type}[${target.targetClass}] ${damage}dmg → ${target.hp}/${target.maxHp}`);
+
+  // 💥 Splash — урон по соседям цели, половина от того, что нанёс бы этот же
+  // удар как основной (та же формула, затем round(×0.5), округление один
+  // раз после деления, не второй множитель поверх формулы боя). Без
+  // контратаки от них и без влияния на Percy-цепочку основной цели.
+  if (hasModule(attacker, 'Splash')) {
+    for (const hex of getNeighbors(target.q, target.r, target.s)) {
+      const splashTarget = state.units.find(u =>
+        u.q === hex.q && u.r === hex.r && u.s === hex.s && u.owner !== attacker.owner
+      );
+      if (!splashTarget) continue;
+
+      const fullDamage = getAttackDamage(attacker, splashTarget);
+      if (fullDamage === null) continue;
+      const splashDamage = Math.round(fullDamage * 0.5);
+
+      splashTarget.hp = Math.max(0, splashTarget.hp - splashDamage);
+      adjustAllegiance(state, attacker.owner, splashTarget.owner, ATTACK_REPERCUSSION);
+      console.log(`💥 Splash ${attacker.type} → ${splashTarget.type} ${splashDamage}dmg → ${splashTarget.hp}/${splashTarget.maxHp}`);
+
+      if (splashTarget.hp <= 0) {
+        removeUnit(splashTarget);
+        registerKill(attacker);
+        console.log(`💀 ${splashTarget.type} погиб от Splash`);
+      }
+    }
+  }
 
   let killed = false;
 

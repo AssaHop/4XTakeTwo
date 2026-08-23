@@ -51,7 +51,7 @@ const ClassTemplates = {
     weaponUnlocks: { Small: 1 },
     targetClass: 'surface',
     spawnTerrain: ['surf', 'water', 'deep'],
-    modules: ['Sail', 'Navy'],
+    modules: ['Sail', 'Navy', 'Splash'],
     dangerScore: 10,
     aiProfile: {
       role: 'neutral',
