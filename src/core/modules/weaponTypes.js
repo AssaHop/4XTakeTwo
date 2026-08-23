@@ -45,7 +45,7 @@ export const WeaponTypes = {
   // "снарядом издалека" (носитель уже безопасен сам по себе — см. тот же
   // документ). Профиль damageVs скопирован 1:1 с заимствованного оружия —
   // меняется только range, баланс урона не трогали.
-  AAA: {
+  GunA: {
     name: 'Anti-Air Cannon',
     description: 'Оружие AAF (Fighter) — короткая дальность, тот же профиль что был у Small.',
     range: 2,
@@ -57,7 +57,7 @@ export const WeaponTypes = {
     damageVs: { surface: 1.0, air: 0.5 }
   },
 
-  Bomb: {
+  BombA: {
     name: 'Dive Bomb',
     description: 'Оружие ADB (Dive bomber) — короткая дальность, тот же профиль что был у Main.',
     range: 2,
@@ -69,7 +69,7 @@ export const WeaponTypes = {
     damageVs: { surface: 1.0 }
   },
 
-  AerialTorp: {
+  TorpA: {
     name: 'Aerial Torpedo',
     description: 'Оружие ATB (Torpedo bomber) — короткая дальность, тот же профиль что был у Torp.',
     range: 2,
