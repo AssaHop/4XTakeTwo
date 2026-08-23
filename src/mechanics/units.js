@@ -197,6 +197,15 @@ class Unit {
 
       if (current.cost > 0) result.push({ q: current.q, r: current.r, s: current.s });
 
+      // Как в Polytopia ("even if you have 0.5 movement points remaining,
+      // you can still move onto a tile costing 1 or even 3") — последний
+      // шаг всегда разрешён, если ДО него ещё оставался хоть какой-то
+      // запас, даже если сам шаг дороже остатка. Проверяем это здесь (по
+      // остатку ДО шага), а не сравнивая newCost с moRange — иначе юнит с
+      // 1 очком из 3 не мог бы зайти на дорогой (cost 2) гекс вообще,
+      // хотя по бюджету у него ещё есть чем заплатить за один шаг.
+      if (current.cost >= this.moRange) continue;
+
       for (const d of neighbors) {
         const nq = current.q + d.dq, nr = current.r + d.dr, ns = current.s + d.ds;
         const nKey = `${nq},${nr},${ns}`;
@@ -209,7 +218,6 @@ class Unit {
 
         const stepCost = this.terrainCost?.[terrain] ?? 1;
         const newCost = current.cost + stepCost;
-        if (newCost > this.moRange) continue;
 
         if (!costSoFar.has(nKey) || newCost < costSoFar.get(nKey)) {
           costSoFar.set(nKey, newCost);
