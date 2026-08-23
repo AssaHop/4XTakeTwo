@@ -46,7 +46,13 @@ const ClassTemplates = {
     atDamage: 3,
     def: 5,
     moRange: 3,
-    viRange: 100,
+    // Было 100 ("радар на всю карту") — безобидно, пока viRange нигде не
+    // читался. Сессия 9 подключила fogOfWar.js, и один WBB (он есть в
+    // стартовом флоте игрока всегда, dominator.js:FLEET) стал сносить
+    // туман со всей карты сразу на старте. Снижено до radius=6, как у
+    // остальных крупных юнитов (WSB/WCA/WLC/WSS/авиация) — совпадает с
+    // его же atRange, "видит настолько, насколько стреляет".
+    viRange: 6,
     weType: ['Main', 'Small'],
     weaponUnlocks: { Small: 1 },
     targetClass: 'surface',
