@@ -38,7 +38,12 @@ function findPath(start, goal, map, unit) {
     }
 
     for (const next of getNeighbors(current, map, unit)) {
-      const newCost = costSoFar.get(key(current)) + 1;
+      // Тот же вес шага, что unit.getAvailableHexes() — иначе AI планирует
+      // маршрут по одной цене, а реально ходит по другой (сессия 9,
+      // terrainCost per-класс: deep/surf может стоить 2 очка вместо 1).
+      const nextTerrain = map[key(next)]?.terrainType;
+      const stepCost = unit.terrainCost?.[nextTerrain] ?? 1;
+      const newCost = costSoFar.get(key(current)) + stepCost;
 
       if (!costSoFar.has(key(next)) || newCost < costSoFar.get(key(next))) {
         costSoFar.set(key(next), newCost);

@@ -27,6 +27,12 @@ class Unit {
     this.atDamage = options.atDamage || 1;
     this.weType = options.weType || null;
     this.modules = options.modules || [];
+    // Доп. цена входа на конкретный террейн поверх обычной "1 шаг = 1 очко
+    // хода" — например {deep: 2}. Отсутствие ключа = обычная цена 1.
+    // Независимо от modules/moveTerrain: то ЧТО можно посетить — moveTerrain
+    // (жёсткий допуск/запрет), а СКОЛЬКО это стоит — terrainCost (мягкий
+    // штраф). См. getAvailableHexes()/pathfinding.js:findPath().
+    this.terrainCost = options.terrainCost ?? {};
 
     const weaponKeys = Array.isArray(this.weType) ? this.weType : (this.weType ? [this.weType] : []);
     const weaponProfiles = weaponKeys.map(k => WeaponTypes[k]).filter(Boolean);
@@ -94,6 +100,8 @@ class Unit {
     if (this.hasModule('Sail')) additions.push('surf', 'water');
     if (this.hasModule('Navy')) additions.push('deep');
     if (this.hasModule('Dual')) additions.push('land');
+    if (this.hasModule('Draft')) additions.push('deep');
+    if (this.hasModule('Submerge')) additions.push('water', 'deep');
     if (this.hasModule('Air')) this.ignoresObstacles = true;
 
     this.moveTerrain = Array.from(new Set([...this.moveTerrain, ...additions]));
@@ -165,34 +173,47 @@ class Unit {
     return dx <= this.atRange && dy <= this.atRange && dz <= this.atRange;
   }
 
+  // Dijkstra, не BFS — шаг на террейн с terrainCost стоит больше одного
+  // очка moRange, поэтому "раньше нашли — значит дёшево" (обычный BFS)
+  // больше не гарантия: дешёвый путь в обход дорогого террейна может
+  // прийти позже по очереди. cameCostSoFar хранит лучшую известную цену
+  // до гекса; запись из очереди с устаревшей (большей) ценой пропускается.
   getAvailableHexes() {
-    const visited = new Set();
     const result = [];
-    const frontier = [{ q: this.q, r: this.r, s: this.s, dist: 0 }];
+    const startKey = `${this.q},${this.r},${this.s}`;
+    const costSoFar = new Map([[startKey, 0]]);
+    const frontier = [{ q: this.q, r: this.r, s: this.s, cost: 0 }];
+
+    const neighbors = [
+      { dq: 1, dr: -1, ds: 0 }, { dq: 1, dr: 0, ds: -1 }, { dq: 0, dr: 1, ds: -1 },
+      { dq: -1, dr: 1, ds: 0 }, { dq: -1, dr: 0, ds: 1 }, { dq: 0, dr: -1, ds: 1 }
+    ];
 
     while (frontier.length > 0) {
+      frontier.sort((a, b) => a.cost - b.cost);
       const current = frontier.shift();
       const key = `${current.q},${current.r},${current.s}`;
-      if (visited.has(key)) continue;
-      visited.add(key);
+      if (current.cost > costSoFar.get(key)) continue; // устаревшая запись
 
-      const cell = state.mapIndex?.[key];
-      if (!cell) continue;
+      if (current.cost > 0) result.push({ q: current.q, r: current.r, s: current.s });
 
-      const terrain = cell.terrainType;
-      const isAllowed = this.moveTerrain?.includes(terrain);
-      const blocked = !isAllowed && !this.ignoresObstacles;
+      for (const d of neighbors) {
+        const nq = current.q + d.dq, nr = current.r + d.dr, ns = current.s + d.ds;
+        const nKey = `${nq},${nr},${ns}`;
+        const cell = state.mapIndex?.[nKey];
+        if (!cell) continue;
 
-      if (blocked) continue;
-      if (current.dist > 0) result.push({ q: current.q, r: current.r, s: current.s });
+        const terrain = cell.terrainType;
+        const isAllowed = this.moveTerrain?.includes(terrain);
+        if (!isAllowed && !this.ignoresObstacles) continue;
 
-      if (current.dist < this.moRange) {
-        const neighbors = [
-          { dq: 1, dr: -1, ds: 0 }, { dq: 1, dr: 0, ds: -1 }, { dq: 0, dr: 1, ds: -1 },
-          { dq: -1, dr: 1, ds: 0 }, { dq: -1, dr: 0, ds: 1 }, { dq: 0, dr: -1, ds: 1 }
-        ];
-        for (let d of neighbors) {
-          frontier.push({ q: current.q + d.dq, r: current.r + d.dr, s: current.s + d.ds, dist: current.dist + 1 });
+        const stepCost = this.terrainCost?.[terrain] ?? 1;
+        const newCost = current.cost + stepCost;
+        if (newCost > this.moRange) continue;
+
+        if (!costSoFar.has(nKey) || newCost < costSoFar.get(nKey)) {
+          costSoFar.set(nKey, newCost);
+          frontier.push({ q: nq, r: nr, s: ns, cost: newCost });
         }
       }
     }

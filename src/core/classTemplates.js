@@ -8,8 +8,11 @@ const ClassTemplates = {
     weType: ['Small', 'Torp'],
     targetClass: 'surface',
     spawnTerrain: ['surf', 'water'],
-    moveTerrain: ['surf', 'water', 'deep'],
-    modules: ['Sail', 'Charge', 'Flee'],
+    // Draft открывает deep (Sail сам его не даёт), terrainCost — штраф за
+    // фактический шаг по нему: эсминец мельче капиталшипов, deep для него
+    // дороже, а не запрещён (сессия 9, terrain-матрица по классам).
+    modules: ['Sail', 'Charge', 'Flee', 'Draft'],
+    terrainCost: { deep: 2 },
     dangerScore: 15,
     aiProfile: {
       role: 'defensive',
@@ -27,7 +30,6 @@ const ClassTemplates = {
     weType: ['Small', 'Main'],
     targetClass: 'surface',
     spawnTerrain: ['surf', 'water', 'deep'],
-    moveTerrain: ['surf', 'water', 'deep'],
     modules: ['Sail', 'Navy', 'Charge', 'Percy'],
     dangerScore: 20,
     aiProfile: {
@@ -58,6 +60,9 @@ const ClassTemplates = {
     targetClass: 'surface',
     spawnTerrain: ['surf', 'water', 'deep'],
     modules: ['Sail', 'Navy', 'Splash'],
+    // Самый крупный корпус во флоте — хуже всех держится на мелководье
+    // (сессия 9, terrain-матрица: капиталшипы предпочитают deep).
+    terrainCost: { surf: 2 },
     dangerScore: 10,
     aiProfile: {
       role: 'neutral',
@@ -71,8 +76,12 @@ const ClassTemplates = {
     viRange: 6,
     weType: ['Torp'],
     targetClass: 'sub',
-    spawnTerrain: ['surf', 'water', 'deep'],
-    modules: ['Sail'],
+    // Подлодка: живёт в water/deep, НЕ в surf (слишком мелко чтобы уйти
+    // под воду) — Submerge вместо Sail (сессия 9). spawnTerrain синхронно
+    // без surf: раньше был баг — spawnTerrain разрешал surf, а moveTerrain
+    // (через Sail) deep не давал, при спауне на surf юнит был бы заперт.
+    spawnTerrain: ['water', 'deep'],
+    modules: ['Submerge'],
     dangerScore: 35,
     aiProfile: {
       role: 'neutral',
@@ -87,7 +96,10 @@ const ClassTemplates = {
     weType: ['Small'],
     targetClass: 'surface',
     spawnTerrain: ['surf', 'water', 'deep'],
-    modules: ['Sail'],
+    // Draft открывает deep (Sail сам его не даёт); штраф на surf, как у
+    // WBB — крупный, хуже держится на мелководье (сессия 9).
+    modules: ['Sail', 'Draft'],
+    terrainCost: { surf: 2 },
     dangerScore: 45,
     aiProfile: {
       role: 'defensive',
@@ -184,7 +196,6 @@ const ClassTemplates = {
     weType: ['DC'],
     targetClass: 'surface',
     spawnTerrain: ['surf', 'water', 'deep'],
-    moveTerrain: ['surf', 'water', 'deep'],
     modules: ['Sail', 'Navy'],
     dangerScore: 15,
     aiProfile: {
