@@ -8,7 +8,16 @@
 (2026-06-18/21): добавлены capture points, исправлены баги weType/#24/
 #25/#26/#27, обновлён Flee, улучшен AI scoring, добавлена система
 damageVs/targetClass, авиационная механика, флит 5v5 в dominator.
-Остальной документ актуален на дату сессии 2.
+
+**Сверено и дополнено сессией 8 (2026-08-22/23)** — см. подробности в
+`docs/sessions/2026-08-23-session8.md`: allegiance-матрица (диплома­тия
+вместо хардкода player1), настоящая ATK/DEF-формула боя Polytopia
+(заменяет часть описания damageVs ниже), контратаки, Step C
+(симулированный обмен в AI), консолидация системы модулей (`unitFlags.js`
+удалён), баланс WBB. Сессия 7 (авиация/ветеранство/win-lose/ASP) тоже
+пропущена в этом документе до сессии 8 — читать `docs/sessions/
+2026-06-22-session7.md` и `2026-08-23-session8.md` как источник правды
+там, где они расходятся с этим файлом.
 
 ## Структура каталогов
 
@@ -71,14 +80,17 @@ ui/events.js: handleEndTurn()
                         1. пересчёт liveTargets из gameState.units —
                            только цели которые getAttackDamage(unit,t) ≠ null [сессия 6]
                         2. decideAction(unit, liveTargets)
-                             → scoreTarget():
-                                 +50 player1, +target.dangerScore [сессия 6, ранее
-                                   хардкод WCC+25/WDD+15/WBB+10],
+                             → scoreTarget() [сессия 8, полностью переписан]:
+                                 -getAllegiance(unit.owner, target.owner)
+                                   [diplomacy.js — заменяет старый хардкод +50 player1],
+                                 +target.dangerScore,
                                  +(1-hpPercent)×30,
-                                 +40 если getAttackDamage(unit,target) ≥ target.hp [сессия 6],
                                  -1×dist, -30 если unit.hp≤1,
-                                 Шаг B [сессия 6]: -60 если цель убивает нас
-                                   ответным ударом и мы в её зоне атаки
+                                 Шаг C: +tradeValue(unit,target,simulateAttack(...))
+                                   [combatSimulator.js — заменяет старые хардкод-пороги
+                                    "+40 если килл" и "Шаг B: -60 если сами умираем";
+                                    tradeValue пропорционален dangerScore обеих сторон,
+                                    не плоская константа]
                              → attack | move (bestStepWithLoS / bestStepToward с
                                optimalRange=atRange-1 [сессия 5]) | CP-move | idle
                              → decideCaptureAction() конкурирует с атакой
@@ -93,31 +105,36 @@ ui/events.js: handleEndTurn()
         двойная отрисовка юнитов на каждый redraw, не критично)
 ```
 
-## Победные условия — определены, но не подключены
+## Победные условия — подключены (сессия 7, закрыто #1/#1a)
 
-`scenarios/dominator.js` и `scenarios/conqueror.js` экспортируют
-`winCondition(state)`/`loseCondition(state)`. **Ни один файл их не
-импортирует.** `GameState.GAME_OVER` существует как enum-значение в
-`core/gameStateMachine.js`, но `transitionTo(GameState.GAME_OVER)`
-никогда не вызывается. Игра физически не может закончиться победой
-или поражением сейчас — нужно добавить проверку после каждого
-`redraw()` или после каждого `nextTurn()`.
+`scenarios/dominator.js` экспортирует `winCondition(state)`/
+`loseCondition(state)`, фильтрует по присутствию юнитов в `state.units`
+(мёртвые физически удаляются `splice()` в `combatLogic.js`, поле `u.alive`
+не существует и не используется — старый баг закрыт). `ui/events.js:
+checkEndConditions()` проверяет оба условия после атаки игрока и после
+каждого хода AI в `runAISequence`; при срабатывании — `state.gameOver =
+true` + `alert(...)`, `handleCanvasClick`/`handleEndTurn` блокируются пока
+`state.gameOver`. Пока только `alert` — нет UI-оверлея и автовозврата в
+меню (см. известные проблемы).
 
-Дополнительно у `dominator.winCondition`/`loseCondition` логическая
-ошибка: фильтруют по `u.alive`, а у `Unit` такого поля нет (есть метод
-`isAlive()`, либо просто факт присутствия в `state.units`, так как
-мёртвые юниты физически удаляются `splice()` в `combatLogic.js`).
-Из-за этого `enemies.length === 0` всегда true — нужно поправить
-вместе с подключением.
+`conqueror.js` тоже экспортирует свои `winCondition`/`loseCondition`, но
+сценарий сломан по другой причине (см. таблицу сценариев ниже) — условия
+победы там формально есть, но опираются на `turnCount`/`controlledBy`,
+которые никогда не устанавливаются.
 
-## Система модулей — два независимых механизма кодирования эффекта
+## Система модулей — effect() существует отдельно от реальной проверки
 
 См. подробный список в AGENTS.md §3 и в `docs/content-status.md`.
-Короткая версия: `effect()` в реестре модулей и реальная боевая логика
+Короткая версия: `effect()` в реестре модулей выставляет флаги на юните
+(`unit.canCharge`, `unit.attackOnKill` и т.д.), но реальная боевая логика
 (`hasModule()` проверки в `combatLogic.js`/`gameStateMachine.js`/
-`unitFlags.js`/`aiManager.js`) — это две разные, не связанные друг с
-другом системы. Совпадают по смыслу только для terrain-модулей
-(Dual/Sail/Navy/Air) и отчасти для Charge/Flee/Percy.
+`aiManager.js`) читает не эти флаги, а сам факт наличия модуля в
+`unit.modules` напрямую. **Сессия 8**: убран второй параллельный слой
+флагов (`core/unitFlags.js`, удалён), который дублировал `effect()` и
+местами ей противоречил (`Still`/`Ambush` означали разное в двух
+системах) — теперь `hasModule()` единственный канонический способ.
+Совпадают по смыслу с `effect()` только terrain-модули
+(Dual/Sail/Navy/Air) и отчасти Charge/Flee/Percy.
 
 ## Сценарии
 
@@ -154,28 +171,52 @@ AI: `decideCaptureAction()` в `attackState.js` — конкурирует с а
   приближается по прямой, может застрять у берега)
 - Focus fire / deconfliction целей — несколько юнитов не координируют кого бить
 
-## Система damageVs / targetClass (добавлено сессией 6)
+## Боевая формула — ATK/DEF/HP% настоящей Polytopia (сессия 8, заменяет старую damageVs-only модель)
 
-Каждый юнит имеет `targetClass: 'surface' | 'air' | 'sub'` (из
-`classTemplates.js`). Каждое оружие в `weaponTypes.js` имеет
-`damageVs: { surface: M, air: M, sub: M }` — множители урона.
+Источник — `polytopia.fandom.com/wiki/Combat`, реализовано дословно
+(акселератор **4.5** подтверждён первоисточником):
 
-Реальный урон: `Math.round(unit.atDamage * damageVs[target.targetClass])`.
-Лучший из всех `weType` юнита — `getAttackDamage(attacker, target)`
-в `combatLogic.js`. Отсутствие ключа в `damageVs` = оружие не может
-выбрать этот класс (не 0, а невозможность атаки).
+```
+attackForce  = effectiveATK × (attacker.hp / attacker.maxHp)
+defenseForce = target.def × (target.hp / target.maxHp) × defenseBonus(=1, не реализован)
+attackResult  = round((attackForce/(attackForce+defenseForce)) × effectiveATK × 4.5)
+defenseResult = round((defenseForce/(attackForce+defenseForce)) × target.def × 4.5)
+```
 
-Текущая матрица:
+`effectiveATK = unit.atDamage × weaponTypes[оружие].damageVs[target.targetClass]`
+— каждый юнит имеет `targetClass: 'surface'|'air'|'sub'`
+(`classTemplates.js`), каждое оружие в `weaponTypes.js` имеет
+`damageVs: {surface,air,sub}` **множители** (не абсолютный урон).
+Отсутствие ключа = оружие физически не может выбрать этот класс
+(`null`, не 0). Из нескольких `weType` берётся максимум эффективного ATK
+— `getEffectiveAttack()` в `combatLogic.js`.
 
-| Оружие | surface | air | sub |
-|--------|---------|-----|-----|
-| Main   | ×1.0    | —   | —   |
-| Torp   | ×1.0    | —   | ×1.0 |
-| Small  | ×1.0    | ×0.5 | —  |
+Текущая матрица множителей:
 
-Используется в: `combatLogic.js:performAttack()` (фактический урон),
-`attackState.js:execute()` (фильтр liveTargets), `attackState.js:scoreTarget()`
-(kill-check и Шаг B), `units.js:getAttackableHexes()` (подсветка целей UI).
+| Оружие | дальность | surface | air | sub |
+|--------|---|---------|-----|-----|
+| Main   | 6 | ×1.0    | —   | —   |
+| Torp   | 7 | ×1.0    | —   | ×1.0 |
+| Small  | 6 | ×1.0    | ×0.5 | —  |
+| DC     | 3 | —       | —   | ×1.0 |
+
+`unit.def` — новое поле (сессия 8), дефолт = `atDamage` (симметрично);
+единственное явное переопределение сейчас — WBB (`def:5` > `atDamage:3`,
+танк). См. `docs/ai-design-notes-tribes.md` для полного баланс-бэклога
+(Torp дальность, AAF отдельное оружие, ADB/ATB понижение и т.д. —
+продумано, не вписано в код).
+
+**Контратака** (`getCounterDamage`) — та же формула, но считается ДО
+применения основного урона (обе стороны — HP на старте обмена, не
+"цель уже подранена значит отвечает слабее"). `noCounter` (только
+AAF/ADB/ATB) — Surprise-эквивалент реальной Polytopia (атакующий не
+получает ответку); Stiff-эквивалент (защитник никогда не отвечает,
+независимо от того кто атакует) не заведён.
+
+Используется в: `combatLogic.js:performAttack()` (фактический урон +
+контратака), `attackState.js:execute()` (фильтр liveTargets),
+`attackState.js:scoreTarget()` (Шаг C, `combatSimulator.js`),
+`units.js:getAttackableHexes()` (подсветка целей UI).
 
 ## Авиация (добавлено сессией 6)
 
@@ -187,13 +228,11 @@ AI: `decideCaptureAction()` в `attackState.js` — конкурирует с а
 - `resetAviationState()`: сбрасывает `spawnCycle` Map (вызывается из
   `aiManager.js:resetAIState()`).
 
-Флаг `noCounter: true` на AAF/ADB/ATB зарезервирован — counter-attack в
-`combatLogic.js` не реализован, флаг не читается.
-
-**Известный баг**: AAF/ADB/ATB не имеют `modules: ['Air']` в шаблонах →
-`moveTerrain` остаётся пустым → `getAvailableHexes()` возвращает [] →
-авиация не может двигаться. Дальнобойное оружие (range 6-7) позволяет
-атаковать без перемещения, но repositioning невозможен.
+`noCounter: true` на AAF/ADB/ATB — **реализовано сессией 8**, см. раздел
+про боевую формулу выше (`getCounterDamage` учитывает флаг).
+`modules: ['Air']` у AAF/ADB/ATB — **добавлено сессией 7** (было
+известным багом, авиация не могла двигаться; теперь `ignoresObstacles`
+выставляется, `getAvailableHexes()` работает нормально).
 
 ## Сериализация (savegame)
 

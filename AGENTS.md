@@ -179,10 +179,12 @@ index.html → core/game.js (DOMContentLoaded)
   `ignoresObstacles`, реально читаемые поля.
 - `Charge`/`Flee`/`Percy` — но НЕ через свой `effect()`. Поведение
   задаётся отдельным механизмом: прямой строковой проверкой
-  `unit.hasModule('Charge')` в `unitFlags.js`/`combatLogic.js`/
-  `gameStateMachine.js`/`aiManager.js`. Собственные флаги этих модулей
-  (`canCharge`, `canFlee`, `attackOnKill` из `combatModules.js`)
-  нигде не читаются — мёртвые.
+  `unit.hasModule('Charge')` в `combatLogic.js`/`gameStateMachine.js`/
+  `aiManager.js`. Собственные флаги этих модулей (`canCharge`, `canFlee`,
+  `attackOnKill` из `combatModules.js`) нигде не читаются — мёртвые.
+  (Сессия 8: второй параллельный слой флагов, `core/unitFlags.js`,
+  который дублировал и местами противоречил этому списку, удалён —
+  `hasModule()` теперь единственный канонический способ проверки.)
 - `Corrupt`/`Surge` — через `target.status` массив в `combatLogic.js`,
   тоже не через свои `onHitEffects`/`freezeOnHit` флаги.
 
