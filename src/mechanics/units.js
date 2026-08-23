@@ -8,6 +8,7 @@ import { ModuleDefinitions } from '../core/modules/allModulesRegistry.js';
 import { WeaponTypes } from '../core/modules/weaponTypes.js';
 import { canUnitSpawnOnHex } from '../utils/spawnUtils.js';
 import { evaluatePostAction } from '../core/gameStateMachine.js';
+import { isVisible } from '../world/fogOfWar.js';
 
 // 🧠 Unit class
 class Unit {
@@ -242,6 +243,10 @@ class Unit {
 
           const target = state.units.find(u => u.q === q && u.r === r && u.s === s && u.owner !== unit.owner);
           if (!target) continue;
+
+          // Нельзя выбрать целью то, что owner сейчас не видит (fogOfWar) —
+          // иначе подсветка атаки и сам клик работали бы "вслепую".
+          if (!isVisible(state, unit.owner, target.q, target.r, target.s)) continue;
 
           // Оружие должно иметь damageVs для класса цели (нет ключа = нельзя атаковать)
           if (config.damageVs && !(( target.targetClass || 'surface') in config.damageVs)) continue;
