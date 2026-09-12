@@ -14,7 +14,10 @@ export const dominator = {
 
   getInitialUnits: (map, { enemyCount = 3 }) => {
     const units = [];
-    const FLEET = ['WDD', 'WDD', 'WCC', 'WCC', 'WBB'];
+    // Тестовый состав флота (пока нет ресурсов/продакшена — юниты просто
+    // спаунятся напрямую): 1 WBB (танк/ядро) + 2 WCC (основная сила) +
+    // 5 WDD (массовые эскортники) на сторону.
+    const FLEET = ['WBB', 'WCC', 'WCC', 'WDD', 'WDD', 'WDD', 'WDD', 'WDD'];
 
     const spawnFleet = (owner) => {
       for (const type of FLEET) {

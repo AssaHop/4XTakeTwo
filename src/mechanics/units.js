@@ -42,7 +42,18 @@ class Unit {
       this.atRange = options.atRange || 1;
     }
 
-    this.dangerScore   = options.dangerScore   ?? 0;
+    // strategicValue — редкая явная надбавка для юнитов, чья ценность как
+    // цели НЕ выводится из боевых статов (замена ручной dangerScore —
+    // основная "опасность" теперь считается эмерджентно из atDamage/hp,
+    // см. ai/combatSimulator.js:dangerRatio/unitValue).
+    this.strategicValue = options.strategicValue ?? 0;
+    // torpedoAbility — редкая заряжаемая спецатака (сейчас только WDD, см.
+    // classTemplates.js): { chargeNeeded, multiplier }. torpCharge растёт
+    // на +1 за каждый СВОЙ успешный удар (не контратаку — см.
+    // combatLogic.js:performAttack), висит по достижении порога, пока не
+    // потрачен на заряженный выстрел (сброс в 0 там же).
+    this.torpedoAbility = options.torpedoAbility ?? null;
+    this.torpCharge     = 0;
     this.lifeTurns     = options.lifeTurns     ?? null;
     this.noCounter     = options.noCounter     ?? false;
     // DEF — отдельная от atDamage (ATK) характеристика, по формуле боя

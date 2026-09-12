@@ -1,7 +1,7 @@
 import { cubeToPixel, HEX_RADIUS } from '../world/map.js';
 import { state } from '../core/state.js';
 import { getOwnerColor } from '../mechanics/units.js';
-import { isExplored, isVisible, getGhosts } from '../world/fogOfWar.js';
+import { isExplored, isVisible } from '../world/fogOfWar.js';
 
 const squashFactor = 0.7;
 
@@ -122,35 +122,6 @@ function renderUnits(newScale = state.scale ?? scale, offset = state.offset ?? {
     const { x, y } = cubeToPixel(unit.q, unit.r, unit.s, 0, 0, hexOffset.x, hexOffset.y);
     drawUnit(ctx, x, y, unit);
   });
-
-  // Призраки — последняя известная позиция врага, которого сейчас не видно
-  getGhosts(state, 'player1').forEach(ghost => {
-    const { x, y } = cubeToPixel(ghost.q, ghost.r, ghost.s, 0, 0, hexOffset.x, hexOffset.y);
-    drawGhost(ctx, x, y, ghost);
-  });
-
-  ctx.restore();
-}
-
-// Полупрозрачный пунктирный контур на месте, где владелец последний раз
-// видел вражеский юнит. Без HP — оно устарело в момент потери видимости.
-function drawGhost(ctx, x, y, ghost) {
-  ctx.save();
-  ctx.globalAlpha = 0.45;
-  ctx.setLineDash([3, 3]);
-
-  ctx.beginPath();
-  ctx.arc(x, y, HEX_RADIUS / 2, 0, 2 * Math.PI);
-  ctx.strokeStyle = getOwnerColor(ghost.owner);
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  ctx.setLineDash([]);
-  ctx.fillStyle = getOwnerColor(ghost.owner);
-  ctx.font = 'bold 10px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(ghost.type, x, y + 3);
-  ctx.fillText('?', x, y - HEX_RADIUS / 2 - 2);
 
   ctx.restore();
 }

@@ -81,16 +81,19 @@ index.html → core/game.js (DOMContentLoaded)
                 → ai/aiManager.js:runAIForTurn(currentAI))
               → ai/fsm/strategyFSM.js (всегда state='attack')
                   → ai/fsm/states/attackState.js
-                      execute(executeCallback) [Шаг A, сессия 5]: per-unit:
-                        1. пересчёт liveTargets (getAttackDamage≠null) [сессия 6]
-                        2. decideAction() → scoreTarget():
-                             +50 player1, +target.dangerScore [сессия 6],
-                             +(1-hpPercent)×30, +40 kill (getAttackDamage) [сессия 6],
-                             -1×dist, -30 если hp≤1,
-                             Шаг B -60 если контратака убивает [сессия 6]
-                        3. executeCallback(action) сразу [Шаг A]
+                      execute(executeCallback) [сессия 10: глобальный greedy,
+                      НЕ per-unit цикл в порядке спауна — см. docs/architecture.md]:
+                        на каждом шаге среди ВСЕХ ещё не походивших юнитов
+                        candidatesFor(unit) даёт кандидатов (атака/отступление/
+                        capture/поиск), выбирается максимум score across the board:
+                          scoreTarget(): -getAllegiance(...) [сессия 8],
+                             +dangerRatio(unit,target)×30 + target.strategicValue
+                             [сессия 10, заменяет ручную target.dangerScore],
+                             +(1-hpPercent)×30, -1×dist, -30 если hp≤1,
+                             +tradeValue(...) [Шаг C, сессия 8]
+                        executeCallback(action) сразу после каждого выбора
                       → bestStepToward() → mechanics/pathfinding.js:findPath() (сессия 3)
-                      → decideCaptureAction() конкурирует через cpScore (сессия 5)
+                      → decideCaptureAction()/decideSearchAction() [сессия 10] — тоже кандидаты
               → executeAction() — Charge/Flee/Percy цепочка
                   → core/combatLogic.js:performAttack() → getAttackDamage() [сессия 6]
                   → findSafeHex() — Flee (сессия 4)

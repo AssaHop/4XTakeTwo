@@ -23,7 +23,12 @@ const ATTACK_ACCELERATOR = 4.5;
 // множителем) и weaponUnlocks/veteranLevel. Без округления — округляем
 // один раз, в самом конце, на attackResult/defenceResult.
 // null = ни одно оружие не может поразить этот класс цели вообще.
-function getEffectiveAttack(attacker, target) {
+// multiplier — буст для заряженной способности (например Torp-абилка WDD,
+// см. classTemplates.js:torpedoAbility), 1 = обычная атака, не трогает
+// существующих вызывающих. Применяется к atDamage ДО множителя damageVs —
+// сам множитель урона по классу цели не меняется, боится только "сколько
+// вообще ATK у юнита в этом ударе".
+function getEffectiveAttack(attacker, target, multiplier = 1) {
   const allWeapons = Array.isArray(attacker.weType)
     ? attacker.weType
     : (attacker.weType ? [attacker.weType] : []);
@@ -37,7 +42,7 @@ function getEffectiveAttack(attacker, target) {
     const profile = WeaponTypes[w];
     if (!profile?.damageVs) continue;
     if (!(tClass in profile.damageVs)) continue;
-    const eff = attacker.atDamage * profile.damageVs[tClass];
+    const eff = attacker.atDamage * multiplier * profile.damageVs[tClass];
     if (best === null || eff > best) best = eff;
   }
   return best;
@@ -46,9 +51,12 @@ function getEffectiveAttack(attacker, target) {
 // attackForce/defenseForce/totalForce — общая часть формулы, одна на пару
 // attacker→target, использует и getAttackDamage, и getCounterDamage (чтобы
 // оба считались из одного и того же обмена, как в оригинале, а не как два
-// independent "что если").
-function computeForces(attacker, target) {
-  const effectiveAttack = getEffectiveAttack(attacker, target);
+// independent "что если"). multiplier — см. getEffectiveAttack: буст
+// заряженной атаки увеличивает attackForce, а значит и её ДОЛЮ totalForce —
+// побочно (не отдельным правилом) снижает contr-урон в этом же обмене,
+// потому что доля defenseForce в totalForce падает. Осознанно, не баг.
+function computeForces(attacker, target, multiplier = 1) {
+  const effectiveAttack = getEffectiveAttack(attacker, target, multiplier);
   if (effectiveAttack === null) return null;
 
   const attackForce = effectiveAttack * (attacker.hp / attacker.maxHp);
@@ -61,22 +69,28 @@ function computeForces(attacker, target) {
 
 // Урон attacker → target (attackResult). null = attacker физически не может
 // поразить класс цели (ни одно оружие не подходит).
-export function getAttackDamage(attacker, target) {
-  const f = computeForces(attacker, target);
+export function getAttackDamage(attacker, target, multiplier = 1) {
+  const f = computeForces(attacker, target, multiplier);
   if (!f) return null;
   return Math.round((f.attackForce / f.totalForce) * f.effectiveAttack * ATTACK_ACCELERATOR);
 }
 
 // Ответный урон target → attacker, ЕСЛИ attacker атакует target
 // (defenceResult, из ТОГО ЖЕ обмена что и getAttackDamage, не независимый
-// пересчёт). null если: attacker.noCounter (Surprise-эквивалент — авиация
-// бьёт безответно), либо у target физически нет оружия против класса
-// attacker (наш дополнительный гейт поверх оригинальной формулы — у
-// настоящей Polytopia нет air/sub/surface, а у нас подлодка/авиация
-// по дизайну бьют не всех, см. ai-design-notes-tribes.md).
-export function getCounterDamage(attacker, target) {
+// пересчёт). Проверено на реальных данных Polytopia (Units/Damage
+// Matrix/Retaliation Matrix, polytopia.fandom.com): Warrior(atk2,hp10) →
+// Defender(def3,hp15) даёт dmg=4/retaliation=8 — именно ЭТА формула
+// (defenseForce/totalForce × target.def, тот же totalForce, что и в прямой
+// атаке) воспроизводит оба числа точно. Giant(atk5,def4) зеркально сам в
+// себя даёт 13/8 (несимметрично!) — потому что у Giant тоже atk≠def, это
+// не баг, это как формула работает в оригинале. null если:
+// attacker.noCounter (Surprise-эквивалент — авиация бьёт безответно), либо
+// у target физически нет оружия против класса attacker (наш доп. гейт
+// поверх оригинальной формулы — у настоящей Polytopia нет air/sub/surface,
+// а у нас подлодка/авиация по дизайну бьют не всех).
+export function getCounterDamage(attacker, target, multiplier = 1) {
   if (attacker.noCounter) return null;
-  const f = computeForces(attacker, target);
+  const f = computeForces(attacker, target, multiplier);
   if (!f) return null;
   if (getEffectiveAttack(target, attacker) === null) return null;
   return Math.round((f.defenseForce / f.totalForce) * target.def * ATTACK_ACCELERATOR);
@@ -96,13 +110,13 @@ function removeUnit(unit) {
   if (idx >= 0) state.units.splice(idx, 1);
 }
 
-function performAttack(attacker, target) {
+function performAttack(attacker, target, { multiplier = 1 } = {}) {
   if (!attacker?.canAct) {
     console.warn(`[ATTACK BLOCKED] ${attacker?.type} can't act`);
     return;
   }
 
-  const damage = getAttackDamage(attacker, target);
+  const damage = getAttackDamage(attacker, target, multiplier);
   if (damage === null) {
     console.warn(`[ATTACK BLOCKED] ${attacker.type} нет оружия против ${target.targetClass} (${target.type})`);
     attacker.canAct = false;
@@ -121,13 +135,31 @@ function performAttack(attacker, target) {
   const dy = Math.abs(target.r - attacker.r);
   const dz = Math.abs(target.s - attacker.s);
   const inCounterRange = dx <= counterRange && dy <= counterRange && dz <= counterRange;
-  const counterDamage = inCounterRange ? getCounterDamage(attacker, target) : null;
+  const counterDamage = inCounterRange ? getCounterDamage(attacker, target, multiplier) : null;
+
+  // Заряд способности (Torp-абилка и подобные, см. classTemplates.js:
+  // torpedoAbility) — копится только от СВОИХ атак attacker'а (эта функция
+  // никогда не вызывается для контратаки — та просто вычитает HP ниже, без
+  // отдельного performAttack), поэтому "заряд не растёт от контры" не
+  // требует отдельной проверки, это уже так по построению. Обычная атака
+  // (multiplier===1) копит; заряженная (multiplier>1, т.е. сама
+  // способность) — тратит и сбрасывает в 0.
+  if (attacker.torpedoAbility) {
+    if (multiplier > 1) {
+      attacker.torpCharge = 0;
+    } else {
+      attacker.torpCharge = Math.min(
+        attacker.torpedoAbility.chargeNeeded,
+        (attacker.torpCharge || 0) + 1
+      );
+    }
+  }
 
   target.hp = Math.max(0, target.hp - damage);
   attacker.canAct = false;
   adjustAllegiance(state, attacker.owner, target.owner, ATTACK_REPERCUSSION);
 
-  console.log(`⚔️ ${attacker.type} → ${target.type}[${target.targetClass}] ${damage}dmg → ${target.hp}/${target.maxHp}`);
+  console.log(`⚔️ ${attacker.type} → ${target.type}[${target.targetClass}] ${damage}dmg${multiplier > 1 ? ' (Torp!)' : ''} → ${target.hp}/${target.maxHp}`);
 
   // 💥 Splash — урон по соседям цели, половина от того, что нанёс бы этот же
   // удар как основной (та же формула, затем round(×0.5), округление один

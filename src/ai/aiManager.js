@@ -18,9 +18,10 @@ export async function runAIForTurn(gameState, owner) {
 
   const fsm = fsmMap.get(owner);
 
-  // Передаём executeAction как callback — каждый юнит решает и исполняет
-  // ДО того как следующий юнит делает свой decideAction.
-  // Это позволяет юниту B видеть актуальный HP цели после удара юнита A
+  // Передаём executeAction как callback — глобальный greedy-цикл в
+  // AttackState.execute() выполняет действие сразу после того как оно
+  // выбрано лучшим среди ВСЕХ ещё не походивших юнитов, ДО пересчёта
+  // следующего лучшего. Это позволяет юниту B видеть актуальный HP цели после удара юнита A
   // (фокус-файр на подбитого юнита возникает эмерджентно, без отдельного правила).
   const actions = await fsm.update(async (action) => {
     if (!action.unit) return;
@@ -72,8 +73,8 @@ async function executeAction(action, gameState, owner) {
 
     case 'attack': {
       if (!unit.canAct || !target) break;
-      console.log(`⚔️ [${owner}] ${unit.type} атакует ${target.type}`);
-      const killed = executeAttack(unit, target, gameState, owner);
+      console.log(`⚔️ [${owner}] ${unit.type} атакует ${target.type}${action.multiplier > 1 ? ' (заряженная Torp)' : ''}`);
+      const killed = executeAttack(unit, target, gameState, owner, action.multiplier);
 
       // Percy: повторная атака если убили
       if (killed && unit.canAct && unit.hasModule?.('Percy')) {
@@ -101,11 +102,14 @@ async function executeAction(action, gameState, owner) {
   }
 }
 
-// Возвращает true если цель убита
-function executeAttack(unit, target, gameState, owner) {
+// Возвращает true если цель убита. multiplier — только для того самого
+// действия, которое candidatesFor() уже проверило на torpCharge; Percy/
+// Charge повторные атаки НЕ наследуют его (вызываются без 4-го аргумента
+// ниже по файлу), иначе заряд можно было бы применить дважды за ход.
+function executeAttack(unit, target, gameState, owner, multiplier = 1) {
   if (!unit.canAct || !target) return false;
   const hpBefore = target.hp;
-  performAttack(unit, target);
+  performAttack(unit, target, { multiplier });
   return target.hp <= 0 || !gameState.units.includes(target);
 }
 

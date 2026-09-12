@@ -9,7 +9,7 @@ import { performAttack } from '../core/combatLogic.js';
 import { runAIForTurn } from '../ai/aiManager.js';
 import { updateCapturePoints } from '../core/captureLogic.js';
 import { processAviationTurn } from '../core/aviationLogic.js';
-import { updateVisibility, expireGhosts } from '../world/fogOfWar.js';
+import { updateVisibility } from '../world/fogOfWar.js';
 
 const squashFactor = 0.7;
 
@@ -130,8 +130,6 @@ async function runAISequence() {
 
     // Туман этого AI — от позиций его юнитов на СТАРТ его хода (не в
     // реальном времени внутри хода — упрощение, см. docs/content-status.md).
-    // Призраки этого AI стареют ровно раз — на старте его же хода.
-    expireGhosts(state, currentAI);
     updateVisibility(state, currentAI);
 
     // Авиация: тикаем lifeTurns, WCA спаунит новый юнит (новый видит действия в этом ходу)
@@ -153,10 +151,8 @@ async function runAISequence() {
     console.log(`➡️ Следующий игрок: ${state.currentPlayer}`);
   }
 
-  // Вернулись к player1 — сбрасываем его юниты, старим его призраков
-  // (ровно раз на старт его хода — та же дисциплина, что у AI выше)
+  // Вернулись к player1 — сбрасываем его юниты
   state.resetUnitsForPlayer('player1');
-  expireGhosts(state, 'player1');
   updateEndTurnButton();
   transitionTo(GameState.IDLE);
   console.log('👤 Ход игрока');

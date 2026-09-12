@@ -11,8 +11,11 @@ import { getAttackDamage, getCounterDamage } from '../core/combatLogic.js';
 // удара (симметричный обмен, не "цель уже подранена — ответ слабее").
 // inCounterRange передаёт вызывающий код (этот модуль ничего не знает про
 // гексы) — тот же guard, что уже есть в scoreTarget.
-export function simulateAttack(unit, target, { inCounterRange = true } = {}) {
-  const damage = getAttackDamage(unit, target) ?? 0;
+// multiplier — для оценки заряженной атаки (Torp-абилка) ДО того как её
+// реально применили: та же логика, что реальный performAttack получает
+// через свой options.multiplier, см. combatLogic.js.
+export function simulateAttack(unit, target, { inCounterRange = true, multiplier = 1 } = {}) {
+  const damage = getAttackDamage(unit, target, multiplier) ?? 0;
   const targetHpAfter = Math.max(0, target.hp - damage);
   const targetKilled = targetHpAfter <= 0;
 
@@ -21,7 +24,7 @@ export function simulateAttack(unit, target, { inCounterRange = true } = {}) {
   let attackerKilled = false;
 
   if (!targetKilled && inCounterRange) {
-    counterDamage = getCounterDamage(unit, target) ?? 0;
+    counterDamage = getCounterDamage(unit, target, multiplier) ?? 0;
     attackerHpAfter = Math.max(0, unit.hp - counterDamage);
     attackerKilled = attackerHpAfter <= 0;
   }
@@ -29,12 +32,36 @@ export function simulateAttack(unit, target, { inCounterRange = true } = {}) {
   return { damage, targetHpAfter, targetKilled, counterDamage, attackerHpAfter, attackerKilled };
 }
 
-// HP-доля × dangerScore — переиспользуем уже существующий сигнал "насколько
-// ценен юнит" (classTemplates.js, диапазон 10-45), не изобретаем вторую
-// шкалу ценности. Фоллбэк 10 = текущий минимум (WBB/WLC), на случай если
-// у юнита dangerScore не задан.
+// Насколько target угрожает evaluator'у, если ударит первым — реальный
+// расчёт по боевой формуле (damageVs/targetClass/def/текущий HP обеих
+// сторон, через getAttackDamage(target, evaluator) — target выступает
+// "атакующим" в этом расчёте). Не абстрактная константа: 0, если target
+// физически не может задеть класс evaluator'а (например ASP.DC не бьёт
+// 'surface' — тогда ASP для линкора не "опасен", формула это знает сама).
+export function threatTo(evaluator, target) {
+  return getAttackDamage(target, evaluator) ?? 0;
+}
+
+// Эмерджентная опасность цели ДЛЯ КОНКРЕТНОГО evaluator'а — заменяет
+// ручную per-класс константу dangerScore. Соотношение угрозы к текущему
+// HP цели: бьёт больно и сам умирает легко = приоритетная цель ("glass
+// cannon" — по формулировке пользователя, дамаг/хп). target.hp, не
+// maxHp — по мере того как цель ранят, соотношение меняется само, без
+// отдельного "бонус за раненого" слагаемого поверх (хотя тот тоже остаётся
+// в scoreTarget — он про другое: "добить, раз уже начали", а это — про
+// то, кто вообще опасен как цель).
+export function dangerRatio(evaluator, target) {
+  return threatTo(evaluator, target) / Math.max(1, target.hp);
+}
+
+// Базовая боевая ценность юнита = его собственный ATK (сколько урона он
+// в принципе способен наносить, пока жив) — раньше это грубо
+// аппроксимировала ручная dangerScore-константа. strategicValue — редкое
+// явное исключение для юнитов, чья реальная ценность НЕ выводится из
+// боевых характеристик (например WCA — слабый сам по себе, но носитель
+// авиации; см. classTemplates.js, комментарий на WCA).
 export function unitValue(unit, hp = unit.hp) {
-  const weight = unit.dangerScore || 10;
+  const weight = (unit.atDamage || 0) + (unit.strategicValue || 0);
   const hpFraction = Math.max(0, hp) / (unit.maxHp || unit.hp || 1);
   return weight * hpFraction;
 }
