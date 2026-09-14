@@ -119,12 +119,23 @@ export function generateScatteredIslands(mapTiles, options = {}) {
 
   // Шаг 2 — фильтр вторым шумом: часть семян не переживает.
   const survivors = chosenSeeds.filter(() => rng() < survivalChance);
-  for (const tile of survivors) tile.terrainType = 'land';
 
-  // Шаг 3 — равномерный рост от ВСЕХ выживших семян сразу (тот же паттерн
-  // роста, что использует generateZonalIslands выше, просто без разделения
-  // на классы размера/форм-пресетов).
-  let frontier = [...survivors];
+  // Шаг 3 — равномерный рост от ВСЕХ выживших семян сразу (growLandFromSeeds
+  // сама помечает семена land'ом и растит их дальше).
+  growLandFromSeeds(survivors, { rng, growChance, growIterations });
+}
+
+// Вынесено из generateScatteredIslands (2026-09-14) — переиспользуется
+// новым territoryScenarioFactory.js:generateSeededTerritoryMap(), где
+// семена — не внутренний случайный набор, а точки захвата, переданные
+// снаружи (та же точка одновременно и семя острова, и будущая точка
+// захвата, см. docs/sessions/2026-09-13-session11.md). Мутирует
+// seedTiles/их соседей на месте (terrainType='land'), ничего не
+// возвращает — так же вела себя логика до выноса.
+export function growLandFromSeeds(seedTiles, { rng = Math.random, growChance = 0.35, growIterations = 2 } = {}) {
+  for (const tile of seedTiles) tile.terrainType = 'land';
+
+  let frontier = [...seedTiles];
   for (let step = 0; step < growIterations; step++) {
     const next = [];
     for (const tile of frontier) {

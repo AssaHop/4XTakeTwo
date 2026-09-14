@@ -47,7 +47,12 @@ function startGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapTyp
 function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapType = 'default') {
   updateMapOffset();
 
-  const map = generateScenario(scenarioName, { size, profile: mapType });
+  // enemyCount передаётся сюда же (не только в getInitialUnits/CapturePoints
+  // ниже) — сценариям вроде territory/skirmish число игроков нужно ДО
+  // генерации террейна, чтобы посчитать сколько точек-семян разбрасывать
+  // (см. territoryScenarioFactory.js:generateSeededTerritoryMap). Старым
+  // сценариям (dominator/conqueror) это поле просто не нужно, игнорируется.
+  const map = generateScenario(scenarioName, { size, profile: mapType, enemyCount });
   state.map = map;
 
   // ✅ Добавляем индекс для AI, pathfinding, LoS

@@ -12,5 +12,5 @@ export const territory = createTerritoryScenario({
   id: 'territory',
   name: 'Territory',
   fleet: FULL_FLEET,
-  mapDefaults: { size: 16, profile: 'testArchipelago' },
+  mapDefaults: { size: 16 },
 });

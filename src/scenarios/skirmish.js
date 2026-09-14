@@ -17,5 +17,5 @@ export const skirmish = createTerritoryScenario({
   id: 'skirmish',
   name: 'Skirmish (test)',
   fleet: SKIRMISH_FLEET,
-  mapDefaults: { size: 18, profile: 'testArchipelago' },
+  mapDefaults: { size: 18 },
 });
