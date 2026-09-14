@@ -4,6 +4,7 @@ import { performAttack } from '../core/combatLogic.js';
 import { hexDistance } from '../mechanics/hexUtils.js';
 import { hasLineOfSight } from '../mechanics/lineOfSight.js';
 import { resetAviationState } from '../core/aviationLogic.js';
+import { spawnUnitAtCapturePoint, upgradeCapturePointCapacity } from '../core/economyLogic.js';
 import { isVisible } from '../world/fogOfWar.js';
 
 const fsmMap = new Map();
@@ -24,11 +25,14 @@ export async function runAIForTurn(gameState, owner) {
   // следующего лучшего. Это позволяет юниту B видеть актуальный HP цели после удара юнита A
   // (фокус-файр на подбитого юнита возникает эмерджентно, без отдельного правила).
   const actions = await fsm.update(async (action) => {
-    if (!action.unit) return;
+    // spawn/upgradeCapacity — действия точки захвата, не юнита (action.unit
+    // не задан, см. attackState.js:decideCPAction) — раньше гейт по unit
+    // молча душил бы такие действия, они никогда бы не выполнялись.
+    if (!action.unit && action.type !== 'spawn' && action.type !== 'upgradeCapacity') return;
     await executeAction(action, gameState, owner);
   });
 
-  console.log(`🧠 [${owner}] actions:`, actions.map(a => `${a.type}:${a.unit?.type}`));
+  console.log(`🧠 [${owner}] actions:`, actions.map(a => `${a.type}:${a.unit?.type ?? a.unitType}`));
 }
 
 async function executeAction(action, gameState, owner) {
@@ -99,6 +103,21 @@ async function executeAction(action, gameState, owner) {
     case 'idle':
       console.log(`🛑 [${owner}] ${unit.type} idle`);
       break;
+
+    // Спаун с точки захвата — action.unit не задан (источник кандидата —
+    // точка, не юнит), см. attackState.js:decideSpawnAction/execute().
+    case 'spawn': {
+      const { cp, unitType } = action;
+      const spawned = spawnUnitAtCapturePoint(gameState, owner, cp, unitType);
+      if (spawned) console.log(`💰 [${owner}] спаунит ${unitType} у точки захвата (${cp.q},${cp.r},${cp.s})`);
+      break;
+    }
+
+    // Апгрейд вместимости точки — см. attackState.js:decideUpgradeAction.
+    case 'upgradeCapacity': {
+      upgradeCapturePointCapacity(gameState, owner, action.cp);
+      break;
+    }
   }
 }
 

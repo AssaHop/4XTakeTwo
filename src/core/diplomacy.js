@@ -56,3 +56,39 @@ export function adjustAllegiance(state, ownerA, ownerB, delta) {
   state.allegiance[ownerA][ownerB] = next;
   state.allegiance[ownerB][ownerA] = next;
 }
+
+// "Ганг-ап на лидера" (запрошено пользователем 2026-09-13, см.
+// docs/sessions/2026-09-13-session11.md — попытка сбить экономический
+// снежный ком точек захвата): чем сильнее owner опережает СРЕДНЕЕ число
+// точек захвата среди всех владельцев, тем выше приоритет атаковать
+// именно ЕГО юниты у ВСЕХ остальных — не диплом.пара конкретных двух
+// сторон (это getAllegiance выше), а общий сигнал "кто сейчас впереди".
+//
+// Первая версия была линейной без потолка (excess × WEIGHT) — пользователь
+// справедливо указал: без ограничения при большом отрыве бонус мог
+// разрастись настолько, что забивал вообще все остальные соображения
+// (опасность/дистанция/allegiance), и выглядело бы неестественно, будто
+// остальные стороны вообще перестают воевать друг с другом. Заменено на
+// насыщающуюся экспоненту: bonus = CAP×(1 − e^(−excess/SCALE)) — растёт
+// быстро на старте отрыва, но НИКОГДА не превышает CAP (30 — сопоставимо
+// с dangerRatio×30, заметно меньше ALLEGIANCE_MAX=60, то есть не может в
+// одиночку перевесить прямую военную необходимость). LEADER_PRESSURE_CAP=0
+// отключает эффект полностью. Если владельцев с точками меньше двух —
+// сравнивать не с чем, эффект не применяется (иначе на старте партии,
+// когда у всех по одной домашней точке, любой счёт "выше среднего" был бы
+// шумом округления, не сигналом лидерства).
+export const LEADER_PRESSURE_CAP = 30;
+export const LEADER_PRESSURE_SCALE = 5;
+
+export function getLeaderPressure(state, owner) {
+  if (!LEADER_PRESSURE_CAP) return 0;
+  const cps = state.capturePoints || [];
+  const owners = [...new Set(cps.map(cp => cp.owner).filter(Boolean))];
+  if (owners.length < 2) return 0;
+
+  const counts = Object.fromEntries(owners.map(o => [o, cps.filter(cp => cp.owner === o).length]));
+  const avg = Object.values(counts).reduce((a, b) => a + b, 0) / owners.length;
+  const excess = Math.max(0, (counts[owner] || 0) - avg);
+
+  return LEADER_PRESSURE_CAP * (1 - Math.exp(-excess / LEADER_PRESSURE_SCALE));
+}

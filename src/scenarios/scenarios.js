@@ -1,10 +1,14 @@
 import { scenarioConfigs } from './scenarioConfigs.js';
 import { dominator } from './dominator.js';
 import { conqueror } from './conqueror.js';
+import { territory } from './territory.js';
+import { skirmish } from './skirmish.js';
 
 const scenarioRegistry = {
   dominator,
   conqueror,
+  territory,
+  skirmish,
 };
 
 /**
@@ -44,7 +48,7 @@ export function getInitialUnitsForScenario(id = 'dominator', map = [], options =
 export function getInitialCapturePointsForScenario(id = 'dominator', mapIndex = {}, options = {}) {
   const scenario = getScenarioById(id);
   if (typeof scenario.getInitialCapturePoints !== 'function') return [];
-  return scenario.getInitialCapturePoints(mapIndex, options.capturePointCount ?? 3);
+  return scenario.getInitialCapturePoints(mapIndex, options);
 }
 
 /**

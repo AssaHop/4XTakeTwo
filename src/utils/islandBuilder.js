@@ -83,6 +83,63 @@ export function generateZonalIslands(mapTiles, zones, shapePresets, options = {}
   }
 }
 
+// 🌱🎲 Острова из точек-семян (запрошено пользователем 2026-09-13/14, см.
+// docs/sessions/2026-09-13-session11.md) — по мотивам того, что
+// пользователь увидел в интерактивном генераторе карт Polytopia:
+// разбросать точки-семена (не привязаны к авторским зонам, в отличие от
+// generateZonalIslands выше), потом отдельным шумом отфильтровать часть
+// из них, потом дать всем выжившим вырасти ОДНИМ И ТЕМ ЖЕ равномерным
+// правилом. Вариативность итогового размера острова — эмерджентная, не
+// явные классы "маленький/большой": одиночное выжившее семя остаётся
+// мелкой точкой, близко расположенные выжившие семена сливаются в один
+// массив во время роста. Используется только профилем testArchipelago —
+// defaultIsland/strait остаются на generateZonalIslands без изменений.
+export function generateScatteredIslands(mapTiles, options = {}) {
+  const {
+    seed = Date.now(),
+    seedDensity = 0.06,     // доля тайлов карты, становящихся семенами
+    survivalChance = 0.55,  // доля семян, переживающих фильтр-шум
+    growChance = 0.35,
+    growIterations = 2,
+  } = options;
+
+  const rng = createSeededRNG(seed);
+
+  // Шаг 1 — семена: по одному гексу, количество адаптивно от площади
+  // карты (mapTiles.length уже растёт с size² сам по себе — больше
+  // карта, больше семян само собой, без отдельной формулы под size).
+  const seedCount = Math.max(1, Math.round(mapTiles.length * seedDensity));
+  const pool = [...mapTiles];
+  const chosenSeeds = [];
+  for (let i = 0; i < seedCount && pool.length; i++) {
+    const idx = Math.floor(rng() * pool.length);
+    chosenSeeds.push(pool[idx]);
+    pool.splice(idx, 1);
+  }
+
+  // Шаг 2 — фильтр вторым шумом: часть семян не переживает.
+  const survivors = chosenSeeds.filter(() => rng() < survivalChance);
+  for (const tile of survivors) tile.terrainType = 'land';
+
+  // Шаг 3 — равномерный рост от ВСЕХ выживших семян сразу (тот же паттерн
+  // роста, что использует generateZonalIslands выше, просто без разделения
+  // на классы размера/форм-пресетов).
+  let frontier = [...survivors];
+  for (let step = 0; step < growIterations; step++) {
+    const next = [];
+    for (const tile of frontier) {
+      const neighbors = tile.neighbors.map(n => getTile(n.q, n.r, n.s)).filter(Boolean);
+      for (const neighbor of neighbors) {
+        if (neighbor.terrainType !== 'land' && rng() < growChance) {
+          neighbor.terrainType = 'land';
+          next.push(neighbor);
+        }
+      }
+    }
+    frontier = next;
+  }
+}
+
 // 🎲 Выбор шаблона шейпа
 function rollShape(shapes, rng) {
   if (!Array.isArray(shapes) || shapes.length === 0) return null;

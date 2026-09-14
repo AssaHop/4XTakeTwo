@@ -9,6 +9,8 @@ import { performAttack } from '../core/combatLogic.js';
 import { runAIForTurn } from '../ai/aiManager.js';
 import { updateCapturePoints } from '../core/captureLogic.js';
 import { processAviationTurn } from '../core/aviationLogic.js';
+import { tickResourcesForOwner } from '../core/economyLogic.js';
+import { updateEconomyPanel } from './economyPanel.js';
 import { updateVisibility } from '../world/fogOfWar.js';
 
 const squashFactor = 0.7;
@@ -31,6 +33,7 @@ function redraw() {
   updateVisibility(state, 'player1');
   renderMap(state.scale, state.offset);
   renderUnits(state.scale, state.offset);
+  updateEconomyPanel();
 }
 
 function setupEventListeners() {
@@ -58,6 +61,21 @@ function handleCanvasClick(event) {
   const clickedCube = pixelToCube(x, y);
   const rounded = cubeRound(clickedCube);
   const { q, r, s } = rounded;
+
+  // 👇 SELECT OWN CAPTURE POINT (для панели спауна/апгрейда — economyPanel.js
+  // раньше всегда брала ПЕРВУЮ свою точку в state.capturePoints, что на
+  // практике означало НАВСЕГДА домашнюю (она первая в массиве с самого
+  // начала партии, порядок массива не меняется при смене владельца) —
+  // игрок физически не мог тратить токены у другой захваченной точки.
+  // Клик по своей точке захвата явно выбирает её как цель трат.
+  const clickedCP = (state.capturePoints || []).find(cp =>
+    cp.owner === 'player1' && cubeEqualsWithEpsilon(cp, { q, r, s })
+  );
+  if (clickedCP) {
+    state.selectedCP = clickedCP;
+    redraw();
+    return;
+  }
 
   const clickedUnit = state.units.find(unit => cubeEqualsWithEpsilon(unit, { q, r, s }));
 
@@ -135,6 +153,12 @@ async function runAISequence() {
     // Авиация: тикаем lifeTurns, WCA спаунит новый юнит (новый видит действия в этом ходу)
     processAviationTurn(state, currentAI);
 
+    // Экономика: начисляем токены за уже захваченные точки. Решение
+    // тратить ли их на спаун и на что именно принимается внутри
+    // runAIForTurn() — spawn теперь кандидат в общем пуле AttackState,
+    // не отдельный шаг (см. attackState.js:decideSpawnAction).
+    tickResourcesForOwner(state, currentAI);
+
     // Пауза перед ходом — видно кто ходит
     await sleep(AI_TURN_DELAY);
 
@@ -171,6 +195,7 @@ async function handleEndTurn() {
   // Переход к следующему игроку
   updateCapturePoints(state);
   processAviationTurn(state, 'player1');
+  tickResourcesForOwner(state, 'player1'); // тратит игрок сам, кнопкой — см. uiControls.js
   state.nextTurn();
   updateEndTurnButton();
 

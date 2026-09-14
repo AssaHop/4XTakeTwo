@@ -1,7 +1,8 @@
 import { generateMapByProfile } from '../utils/generateMapByProfile.js';
-import { getTemplateSpawnCells, getRandomFreeHex } from '../utils/spawnUtils.js';
-import { hexDistance } from '../mechanics/hexUtils.js';
+import { spawnClusteredFleet, pickClusterAnchor } from '../utils/fleetSpawn.js';
+import { pickSpreadLandPoints } from '../utils/capturePointUtils.js';
 import { initAllegiance } from '../core/diplomacy.js';
+import { CAPTURED_BASE_CAPACITY } from '../core/economyLogic.js';
 
 export const dominator = {
   id: 'dominator',
@@ -16,15 +17,19 @@ export const dominator = {
     const units = [];
     // Тестовый состав флота (пока нет ресурсов/продакшена — юниты просто
     // спаунятся напрямую): 1 WBB (танк/ядро) + 2 WCC (основная сила) +
-    // 5 WDD (массовые эскортники) на сторону.
-    const FLEET = ['WBB', 'WCC', 'WCC', 'WDD', 'WDD', 'WDD', 'WDD', 'WDD'];
+    // 4 WDD (эскортники) на сторону.
+    const FLEET = ['WBB', 'WCC', 'WCC', 'WDD', 'WDD', 'WDD', 'WDD'];
+
+    // Радиус карты (map — 2D массив строк q=-size..size, см.
+    // world/map.js:generateHexMap) — минимальная дистанция между анкорами
+    // разных сторон, чтобы флоты не спаунились в одном углу карты.
+    const mapRadius = (map.length - 1) / 2;
+    const anchors = [];
 
     const spawnFleet = (owner) => {
-      for (const type of FLEET) {
-        const cells = getTemplateSpawnCells(type, map);
-        const hex = getRandomFreeHex(cells, units);
-        if (hex) units.push({ q: hex.q, r: hex.r, s: hex.s, type, owner });
-      }
+      const anchor = pickClusterAnchor(FLEET, map, anchors, mapRadius);
+      if (anchor) anchors.push(anchor);
+      spawnClusteredFleet(FLEET, map, units, owner, anchor);
     };
 
     spawnFleet('player1');
@@ -33,33 +38,13 @@ export const dominator = {
     return units;
   },
 
-  getInitialCapturePoints: (mapIndex, count = 3) => {
-    const land = Object.values(mapIndex).filter(c => c.terrainType === 'land');
-    if (!land.length) return [];
-
-    // Fisher-Yates shuffle
-    for (let i = land.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [land[i], land[j]] = [land[j], land[i]];
-    }
-
-    // Pick points spread at least 5 hexes apart
-    const picks = [];
-    for (const h of land) {
-      if (picks.every(p => hexDistance(h, p) >= 5)) {
-        picks.push(h);
-        if (picks.length >= count) break;
-      }
-    }
-    // Fallback: fill remaining without spread constraint
-    for (const h of land) {
-      if (picks.length >= count) break;
-      if (!picks.some(p => p.q === h.q && p.r === h.r && p.s === h.s)) picks.push(h);
-    }
-
-    return picks.slice(0, count).map(h => ({
+  getInitialCapturePoints: (mapIndex, options = {}) => {
+    const count = typeof options === 'number' ? options : (options.capturePointCount ?? 3);
+    const picks = pickSpreadLandPoints(mapIndex, count, { minDistance: 5 });
+    return picks.map(h => ({
       q: h.q, r: h.r, s: h.s,
-      owner: null, claimant: null, claimTurns: 0
+      owner: null, claimant: null, captureProgress: 0,
+      capacityLevel: CAPTURED_BASE_CAPACITY,
     }));
   },
 

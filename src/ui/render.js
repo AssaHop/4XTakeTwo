@@ -194,10 +194,10 @@ function drawCapturePoint(ctx, x, y, cp) {
   ctx.fill();
   ctx.stroke();
 
-  // Claim progress arc (0 → full circle when claimTurns reaches 2)
-  if (claimCol && cp.claimTurns > 0) {
+  // Claim progress arc (0 → full circle when captureProgress reaches 1)
+  if (claimCol && cp.captureProgress > 0) {
     ctx.beginPath();
-    ctx.arc(x, y, r * 0.45, -Math.PI / 2, -Math.PI / 2 + (cp.claimTurns / 2) * 2 * Math.PI);
+    ctx.arc(x, y, r * 0.45, -Math.PI / 2, -Math.PI / 2 + cp.captureProgress * 2 * Math.PI);
     ctx.strokeStyle = claimCol;
     ctx.lineWidth   = 3;
     ctx.stroke();

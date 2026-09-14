@@ -235,7 +235,14 @@ function performAttack(attacker, target, { multiplier = 1 } = {}) {
     console.log('🔁 [Percy Triggered] repeat attack granted');
   }
 
-  if (!killed && hasModule(attacker, 'Flee') && !attacker.actBonusUsed) {
+  // БАГ (найден пользователем 2026-09-13): было `!killed && hasModule(...)`
+  // — Flee физически не мог сработать на убивающем ударе, потому что
+  // условие явно требовало ЖИВУЮ цель. Percy (repeat-attack) и Flee
+  // (bonus-move) не должны быть взаимоисключающими по этому признаку —
+  // они уже разделены общим actBonusUsed (если Percy выше сработал первым,
+  // actBonusUsed=true и Flee корректно не сработает повторно). У юнитов
+  // без Percy (например WDD) килл ошибочно навсегда отключал их Flee.
+  if (hasModule(attacker, 'Flee') && !attacker.actBonusUsed) {
     attacker.canMove = true;
     attacker.actBonusUsed = true;
     console.log('🏃 [Flee Triggered] move after attack allowed');

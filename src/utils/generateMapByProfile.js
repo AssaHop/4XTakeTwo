@@ -3,6 +3,7 @@
 import { generateHexMap } from '../world/map.js';
 import {
   generateZonalIslands,
+  generateScatteredIslands,
   createSeededRNG,
   clusterizeTerrain,
   applyVerticalIslandGrowth,
@@ -14,10 +15,12 @@ import {
 
 import { defaultIsland } from './mapProfiles/defaultIsland.js';
 import { strait } from './mapProfiles/strait.js';
+import { testArchipelago } from './mapProfiles/testArchipelago.js';
 
 export const mapProfiles = {
   defaultIsland,
   strait,
+  testArchipelago,
   default: defaultIsland
 };
 
@@ -40,7 +43,18 @@ export function generateMapByProfile(profileId = 'defaultIsland', size = 15, see
   const rng = createSeededRNG(seed);
   const scaleFactor = (size / 14) * (profile.scaleModifier || 1);
 
-  if (profile.zonalIslands && Array.isArray(profile.zonalIslands)) {
+  // scatteredIslands — новый алгоритм (сессия 11, 2026-09-13/14): семена
+  // без привязки к авторским зонам + шумовой фильтр + равномерный рост,
+  // см. islandBuilder.js:generateScatteredIslands. Пока только у
+  // testArchipelago — defaultIsland/strait остаются на zonalIslands ниже.
+  if (profile.scatteredIslands) {
+    generateScatteredIslands(map.flat(), {
+      ...profile.scatteredIslands,
+      growChance: profile.growChance,
+      growIterations: profile.growIterations,
+      seed,
+    });
+  } else if (profile.zonalIslands && Array.isArray(profile.zonalIslands)) {
     const scaledZonalIslands = profile.zonalIslands.map(zone => ({
       ...zone,
       count: zone.count === 0 ? 0 : Math.max(1, Math.floor(zone.count * scaleFactor))

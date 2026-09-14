@@ -3,9 +3,10 @@ import { hexDistance } from '../../../mechanics/hexUtils.js';
 import { hasLineOfSight } from '../../../mechanics/lineOfSight.js';
 import { findPath } from '../../../mechanics/pathfinding.js';
 import { getAttackDamage, getCounterDamage } from '../../../core/combatLogic.js';
-import { getAllegiance } from '../../../core/diplomacy.js';
+import { getAllegiance, getLeaderPressure } from '../../../core/diplomacy.js';
 import { simulateAttack, tradeValue, dangerRatio } from '../../combatSimulator.js';
 import { isVisible } from '../../../world/fogOfWar.js';
+import { canAffordSpawn, hasFleetRoom, canAffordUpgrade } from '../../../core/economyLogic.js';
 
 // Шаг C: масштаб tradeValue относительно остальных слагаемых scoreTarget
 // (allegiance ±60, dangerRatio*DANGER_SCALE ~0-45, добивание до 30).
@@ -24,6 +25,22 @@ const DANGER_SCALE = 30;
 // "исследование"/"отступление" не дотянули до боевого score.
 const RETREAT_SCORE = 10;
 const SEARCH_SCORE = 1;
+
+// Спаун с точки захвата — тоже кандидат в общем пуле, не отдельная фаза
+// хода (сессия 11, 2026-09-13, по мотивам разбора Tribes SimplePortfolio —
+// SPAWN конкурирует с ATTACK/MOVE/CAPTURE на одной шкале score, см.
+// docs/sessions/2026-09-13-session11.md). Под угрозой — почти как боевое
+// решение (сравнимо с хорошей атакой), фоном — чуть выше SEARCH/RETREAT,
+// чтобы не забивало реальный бой, но срабатывало когда боя рядом нет.
+const SPAWN_THREAT_RADIUS = 3; // тот же радиус, что updateCapturePoints() использует для contest
+const SPAWN_SCORE_THREATENED = 50;
+const SPAWN_SCORE_ECONOMY = 15;
+// Апгрейд вместимости точки — тоже кандидат, но предлагается ТОЛЬКО когда
+// флот уже упёрся в лимит (иначе спаун сразу растит армию, апгрейд — нет,
+// сравнивать их в общем случае не с чем; см. economyLogic.js:
+// hasFleetRoom/canAffordUpgrade). Score сопоставим с "спаун под угрозой" —
+// когда деваться больше некуда, апгрейд — единственный способ расти дальше.
+const UPGRADE_SCORE = 50;
 
 export class AttackState {
   constructor(gameState, owner) {
@@ -45,32 +62,43 @@ export class AttackState {
   // подранил — другой добивает" работает по всей армии сразу, а не только
   // внутри фиксированного порядка перебора.
   async execute(executeCallback) {
-    let remaining = this.gameState.units.filter(u => u.owner === this.owner && (u.canMove || u.canAct));
+    let remainingUnits = this.gameState.units.filter(u => u.owner === this.owner && (u.canMove || u.canAct));
+    // Точки захвата — тоже источник кандидатов (спаун), не юниты, но
+    // участвуют в ТОЙ ЖЕ глобальной конкуренции по score (см. константы
+    // SPAWN_SCORE_* выше). Каждая точка может "походить" (заспаунить) не
+    // больше одного раза за вызов execute() — убирается из списка сразу
+    // после того как её кандидат выигрывает цикл, независимо от исхода.
+    let remainingCPs = (this.gameState.capturePoints || []).filter(cp => cp.owner === this.owner);
 
-    if (this.gameState.units.some(u => u.owner === this.owner) && remaining.length === 0) {
+    if (this.gameState.units.some(u => u.owner === this.owner) && remainingUnits.length === 0) {
       console.warn(`⚠️ [${this.owner}] Все юниты истощены: canMove/canAct = false`);
     }
 
     const actions = [];
 
-    while (remaining.length > 0) {
-      let bestUnit = null;
-      let bestCandidate = null;
+    while (remainingUnits.length > 0 || remainingCPs.length > 0) {
+      let best = null; // { source: 'unit'|'cp', actor, candidate: {action, score} }
 
-      for (const unit of remaining) {
-        const candidates = this.candidatesFor(unit);
-        for (const c of candidates) {
-          if (!bestCandidate || c.score > bestCandidate.score) {
-            bestCandidate = c;
-            bestUnit = unit;
-          }
+      for (const unit of remainingUnits) {
+        for (const c of this.candidatesFor(unit)) {
+          if (!best || c.score > best.candidate.score) best = { source: 'unit', actor: unit, candidate: c };
         }
       }
 
-      if (!bestCandidate) break;
+      for (const cp of remainingCPs) {
+        const c = this.decideCPAction(cp);
+        if (c && (!best || c.score > best.candidate.score)) best = { source: 'cp', actor: cp, candidate: c };
+      }
 
-      actions.push(bestCandidate.action);
-      if (executeCallback) await executeCallback(bestCandidate.action);
+      if (!best) break;
+
+      actions.push(best.candidate.action);
+      if (executeCallback) await executeCallback(best.candidate.action);
+
+      if (best.source === 'cp') {
+        remainingCPs = remainingCPs.filter(cp => cp !== best.actor);
+        continue;
+      }
 
       // idle — тупик для этого хода, юнита больше не рассматриваем, даже
       // если canMove/canAct у него формально ещё true (иначе он снова
@@ -78,13 +106,51 @@ export class AttackState {
       // Остальные — по факту canMove/canAct (move/attack всегда гасят
       // хотя бы один флаг, см. units.js:moveTo/combatLogic.js:performAttack;
       // исключение — Percy/Flee бонус, тогда юнит законно остаётся).
-      remaining = remaining.filter(u => {
-        if (u === bestUnit && bestCandidate.action.type === 'idle') return false;
+      remainingUnits = remainingUnits.filter(u => {
+        if (u === best.actor && best.candidate.action.type === 'idle') return false;
         return this.gameState.units.includes(u) && (u.canMove || u.canAct);
       });
     }
 
     return actions;
+  }
+
+  // Спаун как кандидат (см. константы SPAWN_SCORE_* выше). Приоритет типа
+  // юнита — по мотивам Tribes SimpleAgent.evalSpawn(): статичный список,
+  // модулированный одним булевым сигналом "враг у точки прямо сейчас"
+  // (дешёвый WDD под угрозой, иначе самое дорогое по карману).
+  decideSpawnAction(cp) {
+    const threatened = this.gameState.units.some(u =>
+      u.owner !== this.owner && hexDistance(u, cp) <= SPAWN_THREAT_RADIUS
+    );
+    const priority = threatened ? ['WDD', 'WCC', 'WBB'] : ['WBB', 'WCC', 'WDD'];
+    const type = priority.find(t => canAffordSpawn(this.gameState, this.owner, t));
+    if (!type) return null;
+
+    const score = threatened ? SPAWN_SCORE_THREATENED : SPAWN_SCORE_ECONOMY;
+    return { action: { type: 'spawn', cp, unitType: type }, score };
+  }
+
+  // Апгрейд вместимости КОНКРЕТНОЙ точки (не путать с будущим tech tree
+  // для разблокировки классов юнитов — это отдельная тема, см.
+  // economyLogic.js). Предлагается только когда спаун физически
+  // заблокирован лимитом флота — иначе спаун и апгрейд не с чем сравнивать
+  // на общей шкале (апгрейд не даёт немедленной военной пользы).
+  decideUpgradeAction(cp) {
+    if (hasFleetRoom(this.gameState, this.owner)) return null;
+    if (!canAffordUpgrade(this.gameState, this.owner, cp)) return null;
+    return { action: { type: 'upgradeCapacity', cp }, score: UPGRADE_SCORE };
+  }
+
+  // Кандидат точки захвата — лучшее из "заспаунить юнита" и "прокачать
+  // вместимость" (см. выше). Обе функции возвращают {action, score} в
+  // общей шкале, execute() просто берёт максимум среди всех точек и юнитов.
+  decideCPAction(cp) {
+    const spawn = this.decideSpawnAction(cp);
+    const upgrade = this.decideUpgradeAction(cp);
+    if (!spawn) return upgrade;
+    if (!upgrade) return spawn;
+    return upgrade.score > spawn.score ? upgrade : spawn;
   }
 
   // Все разумные кандидаты-действия для ОДНОГО юнита прямо сейчас, со
@@ -297,6 +363,13 @@ export class AttackState {
     // но реальный конфликт между двумя AI тоже сработает, если их
     // отношения испортятся сильнее, чем с игроком.
     score += -getAllegiance(this.gameState, unit.owner, target.owner);
+
+    // "Ганг-ап на лидера" (сессия 11, попытка сбить экономический снежный
+    // ком точек захвата) — чем больше у target.owner точек захвата
+    // относительно среднего по всем владельцам, тем выше приоритет бить
+    // именно его юниты. LEADER_PRESSURE_WEIGHT=0 в diplomacy.js полностью
+    // отключает эффект без правок здесь.
+    score += getLeaderPressure(this.gameState, target.owner);
 
     // Опасность цели — эмерджентная, не ручная константа (dangerScore
     // убрана). dangerRatio = сколько target нанёс бы НАМ, ударив первым,

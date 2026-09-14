@@ -2,8 +2,9 @@ import { renderMap, renderUnits } from '../ui/render.js';
 import { generateScenario, getInitialUnitsForScenario, getInitialCapturePointsForScenario, getScenarioById } from '../scenarios/scenarios.js';
 import { generateUnits } from '../mechanics/units.js';
 import { setupUI } from '../ui/setup.js';
-import { setupEventListeners } from '../ui/events.js';
+import { setupEventListeners, redraw } from '../ui/events.js';
 import { updateEndTurnButton } from '../ui/uiControls.js';
+import { setupEconomyPanel, updateEconomyPanel } from '../ui/economyPanel.js';
 import { state } from './state.js';
 import { loadGameState, saveGameState } from './savegame.js';
 import { transitionTo, GameState } from './gameStateMachine.js';
@@ -51,7 +52,7 @@ function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapType
 
   // ✅ Добавляем индекс для AI, pathfinding, LoS
   state.mapIndex = initMapIndex(map);
-  state.capturePoints = getInitialCapturePointsForScenario(scenarioName, state.mapIndex);
+  state.capturePoints = getInitialCapturePointsForScenario(scenarioName, state.mapIndex, { enemyCount });
   state.initTurnOrder(enemyCount);
   state.scenario = getScenarioById(scenarioName);
   state.allegiance = state.scenario.getInitialAllegiance
@@ -59,6 +60,7 @@ function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapType
     : initAllegiance(state.turnOrder);
   state.gameOver = false;
   state.fog = {};
+  state.resources = {};
   resetAIState();
 
   if (!map || map.length === 0) {
@@ -80,6 +82,8 @@ function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapType
   renderUnits(scale, offset);
   updateEndTurnButton();
   setupEventListeners();
+  setupEconomyPanel(redraw);
+  updateEconomyPanel();
   initProgressionSystem(state);
 
   transitionTo(GameState.IDLE);

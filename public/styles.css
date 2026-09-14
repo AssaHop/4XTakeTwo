@@ -111,3 +111,39 @@
 #back-to-menu-button:hover {
     background-color: #bbb;
 }
+
+/* 💰 Панель экономики (спаун за токены с точек захвата) */
+#economy-panel {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background-color: rgba(0, 0, 0, 0.6);
+    border-radius: 6px;
+    z-index: 1000;
+    font-family: sans-serif;
+    color: #fff;
+}
+
+#economy-panel button {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 4px;
+    background-color: goldenrod;
+    color: #000;
+    cursor: pointer;
+    transition: 0.2s ease all;
+}
+
+#economy-panel button:disabled {
+    background-color: #555;
+    color: #999;
+    cursor: not-allowed;
+}
+
+#economy-panel button:hover:not(:disabled) {
+    background-color: gold;
+}
