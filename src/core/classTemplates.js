@@ -98,7 +98,11 @@ const ClassTemplates = {
     weType: ['Main', 'Small'],
     weaponUnlocks: { Small: 1 },
     targetClass: 'surface',
-    spawnTerrain: ['surf', 'water', 'deep'],
+    // surf убран (2026-09-16, по запросу пользователя) — WBB и так хуже
+    // всех держится на мелководье (terrainCost.surf=2 ниже), спауниться
+    // там ему тоже не место; самый крупный корпус флота стартует сразу в
+    // воде/на глубине.
+    spawnTerrain: ['water', 'deep'],
     // Navy -> Draft: у WBB moRange=1 УЖЕ на полу (Math.max(1, ...) в
     // navigationModules.js). Sail(-1) на полу становится no-op (1-1=0,
     // floor вернёт 1), а Navy всё равно потом добавляет +1 — net получался
