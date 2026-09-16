@@ -13,6 +13,7 @@ import { initMapIndex } from '../utils/initMapIndex.js';
 import { runAIForTurn, resetAIState } from '../ai/aiManager.js';
 import { initAllegiance } from './diplomacy.js';
 import { updateVisibility } from '../world/fogOfWar.js';
+import { cubeToPixel } from '../world/map.js';
 
 let scale = 1;
 let isDragging = false;
@@ -20,6 +21,11 @@ let dragStart = { x: 0, y: 0 };
 let offset = { x: 0, y: 0 };
 let mapOffsetX = 0;
 let mapOffsetY = 0;
+// Тот же squashFactor, что render.js/events.js применяют к y отдельным
+// ctx.scale(1, squashFactor) ПОСЛЕ translate — при вычислении offset для
+// центрирования камеры на конкретном гексе (см. centerCameraOnPlayerStart)
+// его надо учитывать так же, иначе смещение по Y будет неверным.
+const squashFactor = 0.7;
 
 function updateMapOffset() {
   const canvas = document.getElementById('game-canvas');
@@ -30,6 +36,31 @@ function updateMapOffset() {
   mapOffsetY = canvas.height / 2;
   offset.x = mapOffsetX;
   offset.y = mapOffsetY;
+  state.offset = { ...offset };
+}
+
+// Камера по умолчанию центрируется на гекс (0,0,0) — центр карты
+// (см. updateMapOffset выше). Раньше этого хватало (карты небольшие,
+// старт примерно по центру), но territory/skirmish (сессия 11) намеренно
+// разносят домашние базы к краям/углам БОЛЬШОЙ карты (max-min выбор) —
+// база физически видна (открыта туманом с первого хода), но камера по
+// умолчанию смотрит в центр карты, а не туда, где реально стоит флот
+// игрока — база оказывается за пределами экрана. Найдено пользователем
+// в реальном запуске 2026-09-16 ("не вижу свою базу в начале игры").
+// Центрируем на среднюю позицию ЮНИТОВ игрока (не на саму точку захвата
+// напрямую — юниты стоят на воде РЯДОМ с ней, но с руки будет то же
+// самое место на экране).
+function centerCameraOnPlayerStart() {
+  const playerUnits = state.units.filter(u => u.owner === 'player1');
+  if (!playerUnits.length) return;
+
+  const avgQ = playerUnits.reduce((sum, u) => sum + u.q, 0) / playerUnits.length;
+  const avgR = playerUnits.reduce((sum, u) => sum + u.r, 0) / playerUnits.length;
+  const avgS = -avgQ - avgR;
+  const { x, y } = cubeToPixel(avgQ, avgR, avgS, 0, 0);
+
+  offset.x = mapOffsetX - x * scale;
+  offset.y = mapOffsetY - y * scale * squashFactor;
   state.offset = { ...offset };
 }
 
@@ -82,6 +113,7 @@ function initGame(size = 15, scenarioName = 'dominator', enemyCount = 2, mapType
     generateUnits(unitsList);
   }
 
+  centerCameraOnPlayerStart();
   updateVisibility(state, 'player1');
   renderMap(scale, offset);
   renderUnits(scale, offset);
