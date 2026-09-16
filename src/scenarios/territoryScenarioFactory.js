@@ -19,8 +19,9 @@
 // + нейтральные). Порядок: (1) точки разбрасываются случайно по чистой
 // карте с проверкой минимального интервала — 4 точки на игрока
 // (масштабируется размером карты); (2) от них растут острова; (3) из ЭТИХ
-// ЖЕ точек по углам гекс-карты (у неё их естественно 6) выбираются
-// домашние базы для ≤6 игроков, остальные точки — нейтральные.
+// ЖЕ точек жадным max-min выбираются домашние базы (см. pickMaxMinHomes
+// ниже — по геометрии гекс-карты это само по себе тяготеет к её углам,
+// без отдельного механизма "6 углов"), остальные точки — нейтральные.
 import { generateHexMap } from '../world/map.js';
 import { hexDistance } from '../mechanics/hexUtils.js';
 import {
@@ -45,20 +46,6 @@ function isDefeated(state, owner) {
   return !hasUnits || !hasPoint;
 }
 
-// 6 вершин гексагональной карты радиуса size — естественные "углы" для до
-// 6 игроков (пользователь: "до 6ти игроков всё просто, по углам, а дальше
-// посмотрим" — случай >6 игроков ниже добирается жадно, не по углам).
-function hexMapCorners(size) {
-  return [
-    { q: 0, r: -size, s: size },
-    { q: size, r: -size, s: 0 },
-    { q: size, r: 0, s: -size },
-    { q: 0, r: size, s: -size },
-    { q: -size, r: size, s: 0 },
-    { q: -size, r: 0, s: size },
-  ];
-}
-
 function shuffle(array, rng) {
   const copy = [...array];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -66,6 +53,47 @@ function shuffle(array, rng) {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+}
+
+// Домашние точки — жадный max-min по набору семян: каждая следующая
+// выбирается там, где МИНИМАЛЬНОЕ расстояние до уже выбранных домов
+// МАКСИМАЛЬНО. Раньше (2026-09-14/16) домашние точки выбирались как
+// "ближайшее семя к одному из 6 равномерно расставленных углов карты" —
+// звучало похоже на "по углам", но семена разбросаны НЕЗАВИСИМО от углов
+// (обычная случайная точка с проверкой интервала, см. scatterSpacedPoints
+// ниже), так что ближайшее семя к разным углам иногда оказывалось на
+// сильно разном расстоянии от самого угла — реальный разброс домов
+// получался неравномерным (size12/4 игрока: минимум 5, максимум 24 между
+// базами почти впятеро). Max-min решает это напрямую: он максимизирует
+// именно ту величину ("на сколько разнесены базы"), а не приближение к
+// произвольной геометрической точке. Как побочный эффект геометрии гекс-
+// карты, max-min и так тяготеет к её вершинам/краям (самые взаимно
+// удалённые точки области) — "по углам" получается сам собой, без
+// отдельного механизма под конкретно 6 углов.
+function pickMaxMinHomes(seedPoints, count, rng) {
+  const remaining = [...seedPoints];
+  const picks = [];
+
+  for (let i = 0; i < count && remaining.length; i++) {
+    let bestDist = -1;
+    let bestCandidates = [];
+    for (const point of remaining) {
+      const minDist = picks.length
+        ? Math.min(...picks.map(p => hexDistance(point, p)))
+        : 0; // первая точка — сравнивать не с чем, любая годится
+      if (minDist > bestDist) {
+        bestDist = minDist;
+        bestCandidates = [point];
+      } else if (minDist === bestDist) {
+        bestCandidates.push(point);
+      }
+    }
+    const chosen = bestCandidates[Math.floor(rng() * bestCandidates.length)];
+    picks.push(chosen);
+    remaining.splice(remaining.indexOf(chosen), 1);
+  }
+
+  return { picks, remaining };
 }
 
 // Разбрасывает count точек случайно (rejection sampling), проверяя что
@@ -170,25 +198,7 @@ export function createTerritoryScenario({ id, name, fleet, mapDefaults = {} }) {
         seedPoints = seedPoints.slice(0, options.neutralCount + owners.length);
       }
 
-      const corners = shuffle(hexMapCorners(cache.size), cache.rng).slice(0, Math.min(owners.length, 6));
-      const remaining = [...seedPoints];
-      const homeSpots = [];
-
-      for (const corner of corners) {
-        if (!remaining.length) break;
-        remaining.sort((a, b) => hexDistance(a, corner) - hexDistance(b, corner));
-        homeSpots.push(remaining.shift());
-      }
-      // >6 игроков — добор жадным max-min от уже выбранных домов
-      // (пользователь: "до 6ти всё просто по углам, а дальше посмотрим").
-      while (homeSpots.length < owners.length && remaining.length) {
-        remaining.sort((a, b) => {
-          const minA = Math.min(...homeSpots.map(h => hexDistance(a, h)));
-          const minB = Math.min(...homeSpots.map(h => hexDistance(b, h)));
-          return minB - minA;
-        });
-        homeSpots.push(remaining.shift());
-      }
+      const { picks: homeSpots, remaining } = pickMaxMinHomes(seedPoints, owners.length, cache.rng);
 
       const homeCPs = owners.map((owner, i) => homeSpots[i] && {
         q: homeSpots[i].q, r: homeSpots[i].r, s: homeSpots[i].s,
