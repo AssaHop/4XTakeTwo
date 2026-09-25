@@ -107,6 +107,27 @@ export function regressionThroughOrigin(xs, ys) {
   return { slope, se, df, n };
 }
 
+// Погрешность наклона (regressionThroughOrigin), посчитанная от РЕАЛЬНОГО
+// биномиального шума каждой точки — не от разброса остатков по 4 точкам
+// (df=3, ненадёжно на таком малом n). slope = Σ(x_i y_i)/Σ(x_i²) с
+// фиксированными весами (та же точечная оценка, что regressionThroughOrigin
+// — эта функция НЕ меняет наклон, только даёт более честную SE), y_i —
+// независимая случайная величина с дисперсией p_i(1-p_i)/n_i (биномиальная
+// пропорция побед). Var(slope) = Σ(x_i² var_i) / (Σx_i²)² (стандартное
+// распространение ошибки через линейную комбинацию с известными весами).
+// rates — доли (0..1, не проценты), ns — число решённых партий на точку.
+export function binomialSlopeSE(xs, rates, ns) {
+  const sumXX = xs.reduce((s, x) => s + x * x, 0);
+  if (!sumXX) return Infinity;
+  let sumX2Var = 0;
+  for (let i = 0; i < xs.length; i++) {
+    const p = rates[i];
+    const varPp = p * (1 - p) * 10000 / ns[i]; // дисперсия винрейта В ПРОЦЕНТНЫХ ПУНКТАХ²
+    sumX2Var += xs[i] * xs[i] * varPp;
+  }
+  return Math.sqrt(sumX2Var) / sumXX;
+}
+
 function sigmoid(z) {
   return 1 / (1 + Math.exp(-z));
 }
