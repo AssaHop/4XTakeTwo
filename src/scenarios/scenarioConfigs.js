@@ -49,6 +49,19 @@ export const scenarioConfigs = {
       minEnemies: 1,
       maxEnemies: 5,
       isPvP: false,
+    },
+
+    duel: {
+      id: 'duel',
+      name: 'Duel (fleet vs fleet)',
+      description: 'No capture points, no economy — mirrored spawns, pure elimination',
+      profile: 'defaultIsland',
+      defaultSize: 16,
+      minSize: 12,
+      maxSize: 30,
+      minEnemies: 1,
+      maxEnemies: 5,
+      isPvP: false,
     }
   };
   

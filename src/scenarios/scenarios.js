@@ -3,12 +3,14 @@ import { dominator } from './dominator.js';
 import { conqueror } from './conqueror.js';
 import { territory } from './territory.js';
 import { skirmish } from './skirmish.js';
+import { duel } from './duel.js';
 
 const scenarioRegistry = {
   dominator,
   conqueror,
   territory,
   skirmish,
+  duel,
 };
 
 /**
