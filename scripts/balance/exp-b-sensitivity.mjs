@@ -1,152 +1,196 @@
 // scripts/balance/exp-b-sensitivity.mjs
 //
-// Эксперимент B протокола калибровки WDD/WCC/WBB (docs/known-issues.md #35):
-// чувствительность исхода боя к HP/ATK/DEF каждого класса. Симметричный
-// состав [WDD×2, WCC×2, WBB×1] на обе стороны, обеим сторонам один и тот же
-// случайный набор статов X (±30% от classTemplates.js) на партию — метрика
-// не "кто выиграл" (стороны симметричны), а доля выживших юнитов каждого
-// класса к концу партии/лимиту ходов. Регрессия (МНК, стандартизованные
-// предикторы) отдельно на класс: survival_share ~ HP + ATK + DEF.
-import { mirroredPair, silenceGameLogs, TURN_LIMIT } from './lib/harness.mjs';
+// Протокол v2 (scripts/balance/protocol-v2.md), шаг 2 — чувствительность
+// статов. ЗАМЕНЯЕТ симметричную постановку сессии 12 (менялись статы ОБЕИХ
+// сторон одинаково — при полной симметрии исход решает только позиция,
+// коэффициенты выходили около нуля не потому что статы не важны, а по
+// построению постановки).
+//
+// Новая постановка — асимметричная, одна переменная за раз:
+// - Базовый флот ОБЕИХ сторон: [WDD×2, WCC×2, WBB×1].
+// - Меняется ТОЛЬКО сторона A: у всех юнитов одного класса c один стат s
+//   умножается на k. Сторона B — базовые статы без изменений.
+// - c ∈ {WDD,WCC,WBB}, s ∈ {hp,atk,def}, k ∈ {0.7,0.85,1.15,1.3}.
+// - 3×3×4 = 36 конфигураций. Партий на конфиг — по требованию пользователя
+//   100 (50 сидов × 2 зеркала), не 40 — точнее оценка наклона.
+// - Метрика: винрейт стороны A. Базовая точка k=1.0→50% НЕ измеряется —
+//   это теоретическая константа (при идентичных статах A=B, симметрия даёт
+//   ровно 50% по построению, см. нулевой контроль в verify-harness.mjs).
+//   Наклон — регрессия ЧЕРЕЗ эту точку по 4 измеренным (lib/regression.mjs:
+//   regressionThroughOrigin), с погрешностью (стандартной ошибкой).
+import { mirroredPair, silenceGameLogs, TURN_LIMIT, DEFAULT_MAP_SIZE } from './lib/harness.mjs';
 import { createCsvWriter } from './lib/csv.mjs';
-import { standardize, olsFit } from './lib/regression.mjs';
-import { createSeededRNG } from '../../src/utils/islandBuilder.js';
+import { regressionThroughOrigin } from './lib/regression.mjs';
 import { ClassTemplates } from '../../src/core/classTemplates.js';
 import { writeFileSync } from 'node:fs';
 
 silenceGameLogs();
 
 const CLASSES = ['WDD', 'WCC', 'WBB'];
-const COMP = ['WDD', 'WDD', 'WCC', 'WCC', 'WBB'];
-const NUM_CONFIGS = Number(process.env.EXPB_CONFIGS || 100);
-const SEEDS_PER_CONFIG = Number(process.env.EXPB_SEEDS || 5); // ×2 (mirror) = 10 games/config
-const MAP_SIZE = 18;
-const VARIATION = 0.30;
+const STATS = ['hp', 'atk', 'def'];
+const K_VALUES = [0.7, 0.85, 1.15, 1.3];
+const BASE_COMP = ['WDD', 'WDD', 'WCC', 'WCC', 'WBB'];
+const MAP_SIZE = DEFAULT_MAP_SIZE; // 12, протокол v2
+const PILOT_SEEDS = 5; // протокол: пилот на 5 сидах перед полным прогоном
+const FULL_SEEDS = Number(process.env.EXPB_SEEDS || 50); // ×2 зеркало = 100 партий/конфиг (было 20→40 в session 12, поднято по запросу пользователя)
+const PILOT_ONLY = process.env.EXPB_PILOT_ONLY === '1';
 
 const BASELINE = Object.fromEntries(CLASSES.map(c => [c, {
   hp: ClassTemplates[c].hp, atk: ClassTemplates[c].atDamage, def: ClassTemplates[c].def,
 }]));
 
-function round1(v) { return Math.round(v * 10) / 10; }
-
-function sampleConfig(rng) {
-  const cfg = {};
-  for (const c of CLASSES) {
-    const b = BASELINE[c];
-    cfg[c] = {
-      hp: round1(b.hp * (1 + (rng() * 2 - 1) * VARIATION)),
-      atk: round1(b.atk * (1 + (rng() * 2 - 1) * VARIATION)),
-      def: round1(b.def * (1 + (rng() * 2 - 1) * VARIATION)),
-    };
-  }
-  return cfg;
+function statValue(cls, stat, k) {
+  const raw = BASELINE[cls][stat] * k;
+  return stat === 'hp' ? Math.round(raw) : Math.round(raw * 10) / 10;
 }
 
-const date = new Date().toISOString().slice(0, 10);
-const csv = createCsvWriter(
-  `scripts/balance/results/${date}-exp-b.csv`,
-  ['config_id', 'seed', 'mirror', 'side', 'pos', 'first_mover',
-   'wdd_hp', 'wdd_atk', 'wdd_def', 'wcc_hp', 'wcc_atk', 'wcc_def', 'wbb_hp', 'wbb_atk', 'wbb_def',
-   'wdd_start', 'wdd_end', 'wcc_start', 'wcc_end', 'wbb_start', 'wbb_end',
-   'turns', 'unresolved']
-);
+const CONFIGS = [];
+for (const cls of CLASSES) for (const stat of STATS) for (const k of K_VALUES) {
+  CONFIGS.push({ cls, stat, k, value: statValue(cls, stat, k) });
+}
 
-// per-config aggregated survival shares, для регрессии
-const perConfig = []; // { config, shares: {WDD:[...], WCC:[...], WBB:[...]} }
+async function runPhase(seeds, csv) {
+  const t0 = Date.now();
+  const totalGames = CONFIGS.length * seeds * 2;
+  let gamesDone = 0;
+  const byConfig = new Map(); // "cls|stat|k" -> {wins, decisive, unresolved}
 
-const configRng = createSeededRNG(12345);
-const t0 = Date.now();
-let gamesDone = 0;
-const totalGames = NUM_CONFIGS * SEEDS_PER_CONFIG * 2;
+  for (let ci = 0; ci < CONFIGS.length; ci++) {
+    const { cls, stat, k, value } = CONFIGS[ci];
+    const key = `${cls}|${stat}|${k}`;
+    const acc = { wins: 0, decisive: 0, unresolved: 0 };
 
-for (let configId = 0; configId < NUM_CONFIGS; configId++) {
-  const cfg = sampleConfig(configRng);
-  const statOverrides = Object.fromEntries(CLASSES.map(c => [c, cfg[c]]));
-  const shares = { WDD: [], WCC: [], WBB: [] };
+    const statOverridesA = { [cls]: { [stat]: value } };
 
-  for (let s = 0; s < SEEDS_PER_CONFIG; s++) {
-    const seed = configId * 1000 + s + 1;
-    const pair = await mirroredPair({
-      seed, size: MAP_SIZE, compA: COMP, compB: COMP,
-      statOverridesA: statOverrides, statOverridesB: statOverrides,
-    });
-
-    for (let mirror = 0; mirror < 2; mirror++) {
-      const r = pair[mirror];
-      for (const [label, start, end] of [['A', r.startLabelA, r.endLabelA], ['B', r.startLabelB, r.endLabelB]]) {
-        const pos = label === 'A' ? r.posA : (r.posA === 'P1' ? 'P2' : 'P1');
+    // Общие сиды 1..seeds переиспользуются для ВСЕХ конфигураций (common
+    // random numbers) — одни и те же карты под разными (class,stat,k),
+    // снижает шум при сравнении между собой, не искажает отдельные оценки.
+    for (let s = 1; s <= seeds; s++) {
+      const [g0, g1] = await mirroredPair({
+        seed: s, size: MAP_SIZE, compA: BASE_COMP, compB: BASE_COMP, statOverridesA,
+      });
+      for (const r of [g0, g1]) {
         csv.writeRow({
-          config_id: configId, seed, mirror, side: label, pos, first_mover: r.firstMoverLabel,
-          wdd_hp: cfg.WDD.hp, wdd_atk: cfg.WDD.atk, wdd_def: cfg.WDD.def,
-          wcc_hp: cfg.WCC.hp, wcc_atk: cfg.WCC.atk, wcc_def: cfg.WCC.def,
-          wbb_hp: cfg.WBB.hp, wbb_atk: cfg.WBB.atk, wbb_def: cfg.WBB.def,
-          wdd_start: start.WDD || 0, wdd_end: end.WDD || 0,
-          wcc_start: start.WCC || 0, wcc_end: end.WCC || 0,
-          wbb_start: start.WBB || 0, wbb_end: end.WBB || 0,
-          turns: r.turns, unresolved: r.unresolved,
+          cls, stat, k, value, seed: s, mirror: r.mirror, pos_a: r.posA,
+          winner_label: r.winnerLabel ?? 'draw', turns: r.turns, unresolved: r.unresolved,
         });
-        for (const c of CLASSES) {
-          const st = start[c] || 0;
-          if (st > 0) shares[c].push((end[c] || 0) / st);
-        }
+        if (r.unresolved || !r.winnerLabel) { acc.unresolved++; }
+        else { acc.decisive++; if (r.winnerLabel === 'A') acc.wins++; }
+        gamesDone++;
       }
-      gamesDone++;
+    }
+    byConfig.set(key, acc);
+
+    if ((ci + 1) % 6 === 0 || ci === CONFIGS.length - 1) {
+      const elapsed = (Date.now() - t0) / 1000;
+      const rate = gamesDone / elapsed;
+      const eta = (totalGames - gamesDone) / rate;
+      console.error(`config ${ci + 1}/${CONFIGS.length} [${key}] — ${gamesDone}/${totalGames} games, ${elapsed.toFixed(0)}s elapsed, ETA ${eta.toFixed(0)}s`);
     }
   }
 
-  perConfig.push({ cfg, shares });
-
-  if ((configId + 1) % 10 === 0 || configId === NUM_CONFIGS - 1) {
-    const elapsed = (Date.now() - t0) / 1000;
-    const rate = gamesDone / elapsed;
-    const eta = (totalGames - gamesDone) / rate;
-    console.error(`config ${configId + 1}/${NUM_CONFIGS} — ${gamesDone}/${totalGames} games, ` +
-      `${elapsed.toFixed(0)}s elapsed, ETA ${eta.toFixed(0)}s`);
-  }
+  return byConfig;
 }
 
+// ---- Пилот ----
+console.error(`=== Пилот: ${CONFIGS.length} конфигураций × ${PILOT_SEEDS} сидов × 2 = ${CONFIGS.length * PILOT_SEEDS * 2} партий ===`);
+const pilotCsv = createCsvWriter('scripts/balance/results/_pilot-exp-b.csv',
+  ['cls', 'stat', 'k', 'value', 'seed', 'mirror', 'pos_a', 'winner_label', 'turns', 'unresolved']);
+const pilotResults = await runPhase(PILOT_SEEDS, pilotCsv);
+await pilotCsv.close();
+
+let pilotUnresolvedTotal = 0, pilotGamesTotal = 0;
+for (const acc of pilotResults.values()) {
+  pilotUnresolvedTotal += acc.unresolved;
+  pilotGamesTotal += acc.unresolved + acc.decisive;
+}
+console.error(`Пилот: нерешённых ${pilotUnresolvedTotal}/${pilotGamesTotal} (${(100 * pilotUnresolvedTotal / pilotGamesTotal).toFixed(1)}%)`);
+// Осмысленность: хотя бы какой-то разброс винрейтов между конфигурациями
+// (не все ровно 50%/0%/100% — было бы признаком поломки), нет массовых
+// нерешённых партий.
+const pilotRates = [...pilotResults.values()].map(a => a.decisive ? a.wins / a.decisive : 0.5);
+const pilotSpread = Math.max(...pilotRates) - Math.min(...pilotRates);
+console.error(`Пилот: разброс винрейтов между конфигурациями ${(100 * pilotSpread).toFixed(1)} п.п. (ожидание: заметно больше нуля)`);
+if (pilotUnresolvedTotal / pilotGamesTotal > 0.15) {
+  console.error('ПИЛОТ: высокая доля нерешённых партий — остановка, не переходить к полному прогону.');
+  process.exit(1);
+}
+if (pilotSpread < 0.05) {
+  console.error('ПИЛОТ: подозрительно малый разброс винрейтов — возможно постановка снова не даёт эффекта, проверить перед полным прогоном.');
+}
+console.error('Пилот пройден — переходим к полному прогону.\n');
+
+if (PILOT_ONLY) {
+  console.error('EXPB_PILOT_ONLY=1 — остановка после пилота.');
+  process.exit(0);
+}
+
+// ---- Полный прогон ----
+const date = new Date().toISOString().slice(0, 10);
+console.error(`=== Полный прогон: ${CONFIGS.length} конфигураций × ${FULL_SEEDS} сидов × 2 = ${CONFIGS.length * FULL_SEEDS * 2} партий ===`);
+const csv = createCsvWriter(`scripts/balance/results/${date}-exp-b.csv`,
+  ['cls', 'stat', 'k', 'value', 'seed', 'mirror', 'pos_a', 'winner_label', 'turns', 'unresolved']);
+const fullResults = await runPhase(FULL_SEEDS, csv);
 await csv.close();
 
-// ---- Регрессия: отдельно на класс, survival_share ~ HP + ATK + DEF ----
-const results = {};
-for (const c of CLASSES) {
-  const X = [];
-  const y = [];
-  for (const { cfg, shares } of perConfig) {
-    const avgShare = shares[c].length ? shares[c].reduce((a, b) => a + b, 0) / shares[c].length : null;
-    if (avgShare == null) continue;
-    X.push([cfg[c].hp, cfg[c].atk, cfg[c].def]);
-    y.push(avgShare);
+let unresolvedTotal = 0, gamesTotal = 0;
+for (const acc of fullResults.values()) { unresolvedTotal += acc.unresolved; gamesTotal += acc.unresolved + acc.decisive; }
+
+// ---- Наклоны с погрешностью ----
+const slopeResults = {}; // cls -> stat -> {slope10, se10, tstat, significant}
+for (const cls of CLASSES) {
+  slopeResults[cls] = {};
+  for (const stat of STATS) {
+    const xs = [], ys = [];
+    for (const k of K_VALUES) {
+      const acc = fullResults.get(`${cls}|${stat}|${k}`);
+      const rate = acc.decisive ? 100 * acc.wins / acc.decisive : 50;
+      xs.push((k - 1) * 100); // % изменения стата от базы
+      ys.push(rate - 50); // отклонение винрейта от теоретических 50%
+    }
+    const { slope, se, df } = regressionThroughOrigin(xs, ys);
+    const slope10 = slope * 10; // Δвинрейт (п.п.) на +10% стата
+    const se10 = se * 10;
+    const tstat = se10 ? slope10 / se10 : 0;
+    // t-критическое для df=3 (всегда 4 точки → df=n-1=3), 95%, двусторонний ≈ 3.182
+    const significant = Math.abs(tstat) > 3.182;
+    slopeResults[cls][stat] = { slope10, se10, tstat, df, significant };
   }
-  const { standardized } = standardize(X);
-  const fit = olsFit(standardized, y);
-  results[c] = { n: X.length, intercept: fit.intercept, betaHp: fit.coefficients[0], betaAtk: fit.coefficients[1], betaDef: fit.coefficients[2] };
 }
 
-let unresolvedTotal = 0, rowsTotal = 0;
-for (const { shares } of perConfig) rowsTotal += 1;
-
-const summaryLines = [];
-summaryLines.push(`# Эксперимент B — чувствительность статов WDD/WCC/WBB`);
-summaryLines.push('');
-summaryLines.push(`Дата: ${date}. Конфигов: ${NUM_CONFIGS}, партий на конфиг: ${SEEDS_PER_CONFIG * 2} (${SEEDS_PER_CONFIG} сидов × зеркалирование). Всего партий: ${totalGames}. Лимит ходов: ${TURN_LIMIT}.`);
-summaryLines.push('');
-summaryLines.push('| Класс | n конфигов | β(HP) | β(ATK) | β(DEF) |');
-summaryLines.push('|---|---|---|---|---|');
-for (const c of CLASSES) {
-  const r = results[c];
-  summaryLines.push(`| ${c} | ${r.n} | ${r.betaHp.toFixed(3)} | ${r.betaAtk.toFixed(3)} | ${r.betaDef.toFixed(3)} |`);
+const lines = [];
+lines.push('# Эксперимент B (протокол v2) — асимметричная чувствительность статов WDD/WCC/WBB');
+lines.push('');
+lines.push(`Дата: ${date}. Постановка: базовый флот [WDD×2,WCC×2,WBB×1] на обе стороны, меняется ТОЛЬКО сторона A (один класс, один стат, k∈{0.7,0.85,1.15,1.3}). 36 конфигураций × ${FULL_SEEDS * 2} партий = ${CONFIGS.length * FULL_SEEDS * 2} партий. Лимит ходов: ${TURN_LIMIT}. Карта: размер ${MAP_SIZE}. Нерешённых: ${unresolvedTotal}/${gamesTotal} (${(100 * unresolvedTotal / gamesTotal).toFixed(1)}%).`);
+lines.push('');
+lines.push('| Класс | Δвинрейт на +10% HP | Δвинрейт на +10% ATK | Δвинрейт на +10% DEF |');
+lines.push('|---|---|---|---|');
+for (const cls of CLASSES) {
+  const fmt = (stat) => {
+    const r = slopeResults[cls][stat];
+    const mark = r.significant ? '**' : '';
+    return `${mark}${r.slope10.toFixed(2)} ± ${r.se10.toFixed(2)} п.п.${mark}`;
+  };
+  lines.push(`| ${cls} | ${fmt('hp')} | ${fmt('atk')} | ${fmt('def')} |`);
 }
-summaryLines.push('');
-summaryLines.push(`Базовые статы (classTemplates.js, ±30% диапазон сэмплирования):`);
-for (const c of CLASSES) {
-  const b = BASELINE[c];
-  summaryLines.push(`- ${c}: hp=${b.hp}, atk=${b.atk}, def=${b.def}`);
+lines.push('');
+lines.push('Жирным — значимо на 95% (|t|>3.182, df=3). Погрешность — стандартная ошибка наклона регрессии через теоретическую точку (k=1.0→винрейт=50%, не измеряется, см. нулевой контроль) по 4 измеренным точкам.');
+lines.push('');
+lines.push('## Сырые винрейты по конфигурациям');
+lines.push('');
+lines.push('| Класс | Стат | k=0.7 | k=0.85 | k=1.15 | k=1.3 |');
+lines.push('|---|---|---|---|---|---|');
+for (const cls of CLASSES) for (const stat of STATS) {
+  const cells = K_VALUES.map(k => {
+    const acc = fullResults.get(`${cls}|${stat}|${k}`);
+    const rate = acc.decisive ? 100 * acc.wins / acc.decisive : NaN;
+    return `${rate.toFixed(1)}% (${acc.decisive}р/${acc.unresolved}н)`;
+  });
+  lines.push(`| ${cls} | ${stat} | ${cells.join(' | ')} |`);
 }
 
 const summaryPath = `scripts/balance/results/${date}-exp-b-summary.md`;
-writeFileSync(summaryPath, summaryLines.join('\n') + '\n');
-
-console.error('\n' + summaryLines.join('\n'));
-console.error(`\nCSV: scripts/balance/results/${date}-exp-b.csv`);
+writeFileSync(summaryPath, lines.join('\n') + '\n');
+console.error('\n' + lines.join('\n'));
+console.error(`\nCSV (полный): scripts/balance/results/${date}-exp-b.csv`);
 console.error(`Summary: ${summaryPath}`);

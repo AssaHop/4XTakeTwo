@@ -83,6 +83,30 @@ export function olsFit(X, y) {
   return { intercept: beta[0], coefficients: beta.slice(1) };
 }
 
+// Регрессия через ноль (y = slope*x, без intercept) с погрешностью
+// (стандартной ошибкой) наклона — протокол v2, шаг 2: 4 измеренные точки
+// (k=0.7/0.85/1.15/1.3) плюс теоретическая базовая точка (k=1.0 →
+// winrate=50%, НЕ измеряется — при равных статах симметрия даёт ровно
+// 50% по построению, это не наблюдение с шумом, а константа) — поэтому
+// регрессия строится ЧЕРЕЗ эту точку, а не через отдельно оцениваемый
+// intercept. xs/ys — уже сдвинуты в систему координат этой точки
+// (x = %-изменение стата, y = винрейт-50). df = n-1 (одна степень свободы
+// уходит на сам наклон, intercept не оценивается — он равен 0 по
+// построению).
+export function regressionThroughOrigin(xs, ys) {
+  const n = xs.length;
+  const sumXY = xs.reduce((s, x, i) => s + x * ys[i], 0);
+  const sumXX = xs.reduce((s, x) => s + x * x, 0);
+  const slope = sumXX ? sumXY / sumXX : 0;
+
+  const residuals = xs.map((x, i) => ys[i] - slope * x);
+  const df = Math.max(n - 1, 1);
+  const sigma2 = residuals.reduce((s, e) => s + e * e, 0) / df;
+  const se = sumXX ? Math.sqrt(sigma2 / sumXX) : Infinity;
+
+  return { slope, se, df, n };
+}
+
 function sigmoid(z) {
   return 1 / (1 + Math.exp(-z));
 }
